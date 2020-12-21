@@ -17,8 +17,11 @@ using GridapEmbedded.Interfaces
 export aggregate
 export color_aggregates
 export AggregateAllCutCells
-export compute_aggregate_bboxes
 export AgFEMSpace
+
+export compute_aggregate_bboxes
+export compute_anchor_nfaces
+export compute_bbox_dfaces
 
 include("CellAggregation.jl")
 
