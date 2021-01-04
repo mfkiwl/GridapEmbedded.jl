@@ -19,9 +19,8 @@ export color_aggregates
 export AggregateAllCutCells
 export AgFEMSpace
 
-export compute_aggregate_bboxes
-export compute_anchor_nfaces
-export compute_bbox_dfaces
+export compute_cell_bboxes
+export compute_cell_to_dface_bboxes
 
 include("CellAggregation.jl")
 

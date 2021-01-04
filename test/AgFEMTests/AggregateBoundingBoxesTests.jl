@@ -28,25 +28,19 @@ colors = color_aggregates(aggregates,bgmodel)
 
 trian = Triangulation(bgmodel)
 
-coords = collect(get_cell_coordinates(trian))
+bboxes = compute_cell_to_dface_bboxes(bgmodel,aggregates)
 
-bboxes = compute_aggregate_bboxes(bgmodel,aggregates)
+# sktrian = BoundaryTriangulation(bgmodel,tags=collect(1:9))
 
-anchors = compute_anchor_nfaces(bgmodel)
+# bbminsx = [ dbboxes[1][i][1].data[1] for i in 1:length(dbboxes[1]) ]
+# bbminsy = [ dbboxes[1][i][1].data[2] for i in 1:length(dbboxes[1]) ]
 
-dbboxes = compute_bbox_dfaces(bgmodel,bboxes)
+# bbmaxsx = [ dbboxes[1][i][2].data[1] for i in 1:length(dbboxes[1]) ]
+# bbmaxsy = [ dbboxes[1][i][2].data[2] for i in 1:length(dbboxes[1]) ]
 
-sktrian = BoundaryTriangulation(bgmodel,tags=collect(1:9))
-
-bbminsx = [ dbboxes[1][i][1].data[1] for i in 1:length(dbboxes[1]) ]
-bbminsy = [ dbboxes[1][i][1].data[2] for i in 1:length(dbboxes[1]) ]
-
-bbmaxsx = [ dbboxes[1][i][2].data[1] for i in 1:length(dbboxes[1]) ]
-bbmaxsy = [ dbboxes[1][i][2].data[2] for i in 1:length(dbboxes[1]) ]
-
-writevtk(sktrian,"sktrian",
-         celldata=["aminsx"=>bbminsx,"aminsy"=>bbminsy,
-                   "bmaxsx"=>bbmaxsx,"bmaxsy"=>bbmaxsy])
+# writevtk(sktrian,"sktrian",
+#          celldata=["aminsx"=>bbminsx,"aminsy"=>bbminsy,
+#                    "bmaxsx"=>bbmaxsx,"bmaxsy"=>bbmaxsy])
 
 # sktrian = BoundaryTriangulation(bgmodel,tags=collect(1:27))
 

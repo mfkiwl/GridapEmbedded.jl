@@ -1,7 +1,7 @@
 function init_bboxes(cell_to_coords)
   T = eltype(eltype(cell_to_coords))
   # RMK: Assuming first node is min and last node is max of BBox
-  [ (cell_to_coords[c][1],cell_to_coords[c][end]) for c in 1:length(cell_to_coords) ]
+  [ [cell_to_coords[c][1],cell_to_coords[c][end]] for c in 1:length(cell_to_coords) ]
 end
 
 function compute_bboxes!(root_to_agg_bbox,cell_to_root,cell_to_coords)
@@ -10,7 +10,7 @@ function compute_bboxes!(root_to_agg_bbox,cell_to_root,cell_to_coords)
     # RMK: Assuming first node is min and last node is max of BBox
     bbmin = min.(root_to_agg_bbox[r][1].data,cell_to_coords[c][1].data)
     bbmax = max.(root_to_agg_bbox[r][end].data,cell_to_coords[c][end].data)
-    root_to_agg_bbox[r] = (bbmin,bbmax)
+    root_to_agg_bbox[r] = [bbmin,bbmax]
   end
 end
 
@@ -21,12 +21,12 @@ end
 #   end
 # end
 
-function compute_aggregate_bboxes(model::DiscreteModel,cell_to_root)
+function compute_cell_bboxes(model::DiscreteModel,cell_to_root)
   trian = Triangulation(model)
-  compute_aggregate_bboxes(trian,cell_to_root)
+  compute_cell_bboxes(trian,cell_to_root)
 end
 
-function compute_aggregate_bboxes(trian::Triangulation,cell_to_root)
+function compute_cell_bboxes(trian::Triangulation,cell_to_root)
   cell_to_coords = collect(get_cell_coordinates(trian))
   root_to_agg_bbox = init_bboxes(cell_to_coords)
   compute_bboxes!(root_to_agg_bbox,cell_to_root,cell_to_coords)
@@ -52,18 +52,31 @@ function _compute_bbox_dface(dface_to_Dfaces,cell_to_agg_bbox,i)
   bboxes_around_dface_i = cell_to_agg_bbox[cells_around_dface_i]
   bbmins = [ bboxes_around_dface_i[i][1].data for i in 1:length(bboxes_around_dface_i) ]
   bbmaxs = [ bboxes_around_dface_i[i][2].data for i in 1:length(bboxes_around_dface_i) ]
-  (min.(bbmins...),max.(bbmaxs...))
+  [min.(bbmins...),max.(bbmaxs...)]
 end
 
-function compute_anchor_nfaces(model::DiscreteModel)
+
+function _compute_cell_to_dface_bboxes(model::DiscreteModel,dbboxes)
   gt = get_grid_topology(model)
-  vc = get_vertex_coordinates(gt)
-  anchors = Array{eltype(vc),1}[]
-  for d = 1:num_dims(gt)-1
-    dface_to_0faces = get_faces(gt,d,0)
-    d_anchors =
-      [ vc[dface_to_0faces.data[dface_to_0faces.ptrs[i]]] for i in 1:num_faces(gt,d) ]
-    anchors = push!(anchors,d_anchors)
+  trian = Triangulation(model)
+  bboxes = [ __compute_cell_to_dface_bboxes(gt,dbboxes,cell) for cell in 1:num_cells(model) ]
+  CellPoint(bboxes,trian,PhysicalDomain())
+end
+
+function __compute_cell_to_dface_bboxes(gt::GridTopology,dbboxes,cell::Int)
+  cdbboxes = eltype(eltype(eltype(dbboxes)))[]
+  D = num_dims(gt)
+  for d = 1:D-1
+    Dface_to_dfaces = get_faces(gt,D,d)
+    for face in getindex(Dface_to_dfaces,cell)
+      cdbboxes = vcat(cdbboxes,dbboxes[d][face])
+    end
   end
-  anchors
+  cdbboxes
+end
+
+function compute_cell_to_dface_bboxes(model::DiscreteModel,cell_to_root)
+  cbboxes = compute_cell_bboxes(model,cell_to_root)
+  dbboxes = compute_bbox_dfaces(model,cbboxes)
+  _compute_cell_to_dface_bboxes(model,dbboxes)
 end
