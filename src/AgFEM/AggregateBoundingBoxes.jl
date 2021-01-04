@@ -1,5 +1,4 @@
 function init_bboxes(cell_to_coords)
-  T = eltype(eltype(cell_to_coords))
   # RMK: Assuming first node is min and last node is max of BBox
   [ [cell_to_coords[c][1],cell_to_coords[c][end]] for c in 1:length(cell_to_coords) ]
 end
@@ -27,7 +26,7 @@ function compute_cell_bboxes(model::DiscreteModel,cell_to_root)
 end
 
 function compute_cell_bboxes(trian::Triangulation,cell_to_root)
-  cell_to_coords = collect(get_cell_coordinates(trian))
+  cell_to_coords = get_cell_coordinates(trian)
   root_to_agg_bbox = init_bboxes(cell_to_coords)
   compute_bboxes!(root_to_agg_bbox,cell_to_root,cell_to_coords)
   # extend_bboxes!(root_to_agg_bbox,cell_to_root)
@@ -59,20 +58,25 @@ end
 function _compute_cell_to_dface_bboxes(model::DiscreteModel,dbboxes)
   gt = get_grid_topology(model)
   trian = Triangulation(model)
-  bboxes = [ __compute_cell_to_dface_bboxes(gt,dbboxes,cell) for cell in 1:num_cells(model) ]
+  ctc = get_cell_coordinates(trian)
+  bboxes = [ __compute_cell_to_dface_bboxes(gt,ctc,dbboxes,cell) for cell in 1:num_cells(model) ]
   CellPoint(bboxes,trian,PhysicalDomain())
 end
 
-function __compute_cell_to_dface_bboxes(gt::GridTopology,dbboxes,cell::Int)
+function __compute_cell_to_dface_bboxes(gt::GridTopology,ctc,dbboxes,cell::Int)
   cdbboxes = eltype(eltype(eltype(dbboxes)))[]
   D = num_dims(gt)
+  Dface_to_0faces = get_faces(gt,D,0)
+  for face in getindex(Dface_to_0faces,cell)
+    cdbboxes = vcat(cdbboxes,ctc[cell][1],ctc[cell][end])
+  end
   for d = 1:D-1
     Dface_to_dfaces = get_faces(gt,D,d)
     for face in getindex(Dface_to_dfaces,cell)
       cdbboxes = vcat(cdbboxes,dbboxes[d][face])
     end
   end
-  cdbboxes
+  cdbboxes = vcat(cdbboxes,ctc[cell][1],ctc[cell][end])
 end
 
 function compute_cell_to_dface_bboxes(model::DiscreteModel,cell_to_root)
