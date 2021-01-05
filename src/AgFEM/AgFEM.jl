@@ -7,6 +7,7 @@ using Gridap
 using Gridap.Helpers
 using Gridap.Arrays
 using Gridap.Geometry
+using Gridap.Geometry: get_cell_to_parent_cell
 using Gridap.ReferenceFEs
 using Gridap.CellData
 using Gridap.FESpaces

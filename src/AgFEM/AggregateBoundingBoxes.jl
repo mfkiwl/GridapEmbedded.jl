@@ -54,13 +54,12 @@ function _compute_bbox_dface(dface_to_Dfaces,cell_to_agg_bbox,i)
   [min.(bbmins...),max.(bbmaxs...)]
 end
 
-
 function _compute_cell_to_dface_bboxes(model::DiscreteModel,dbboxes)
   gt = get_grid_topology(model)
   trian = Triangulation(model)
   ctc = get_cell_coordinates(trian)
   bboxes = [ __compute_cell_to_dface_bboxes(gt,ctc,dbboxes,cell) for cell in 1:num_cells(model) ]
-  CellPoint(bboxes,trian,PhysicalDomain())
+  CellPoint(bboxes,trian,PhysicalDomain()).cell_ref_point
 end
 
 function __compute_cell_to_dface_bboxes(gt::GridTopology,ctc,dbboxes,cell::Int)
@@ -83,4 +82,9 @@ function compute_cell_to_dface_bboxes(model::DiscreteModel,cell_to_root)
   cbboxes = compute_cell_bboxes(model,cell_to_root)
   dbboxes = compute_bbox_dfaces(model,cbboxes)
   _compute_cell_to_dface_bboxes(model,dbboxes)
+end
+
+function compute_cell_to_dface_bboxes(model::RestrictedDiscreteModel,cell_to_root)
+  bboxes = compute_cell_to_dface_bboxes(get_parent_model(model),cell_to_root)
+  bboxes[get_cell_to_parent_cell(model)]
 end
