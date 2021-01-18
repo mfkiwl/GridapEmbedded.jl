@@ -10,7 +10,7 @@ u(x) = x[1] - x[2]
 f(x) = -Δ(u)(x)
 ud(x) = u(x)
 
-const R = 0.4
+const R = 0.42
 
 geom = disk(R,x0=Point(0.5,0.5))
 n = 5; partition = (n,n)
@@ -40,11 +40,9 @@ degree = 2*order*num_dims(model)
 dΩ = Measure(Ω,degree)
 dΓ = Measure(Γ,degree)
 
-# Vstd = FESpace(model,FiniteElements(PhysicalDomain(),model,lagrangian,Float64,order))
-# V = AgFEMSpace(Vstd,aggregates)
-# V = TestFESpace(model,ReferenceFE(lagrangian,Float64,order),conformity=:H1)
 reffe = ReferenceFE(modalC0,Float64,order,bboxes)
-V = TestFESpace(model,reffe,conformity=:H1)
+Vstd = TestFESpace(model,reffe,conformity=:H1)
+V = AgFEMSpace(Vstd,aggregates)
 U = TrialFESpace(V)
 
 const γd = 10.0
@@ -72,6 +70,7 @@ uh1 = h1(uh)
 
 colors = color_aggregates(aggregates,bgmodel)
 writevtk(Ω_bg,"trian",celldata=["cellin"=>aggregates,"color"=>colors])
+writevtk(Ω_bg,"trian_S",nsubcells=10,cellfields=["uh"=>uh])
 writevtk(Ω,"trian_O",cellfields=["uh"=>uh])
 
 @test el2/ul2 < 1.e-8

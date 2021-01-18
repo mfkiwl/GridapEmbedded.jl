@@ -11,6 +11,7 @@ using Gridap.Geometry: get_cell_to_parent_cell
 using Gridap.ReferenceFEs
 using Gridap.CellData
 using Gridap.FESpaces
+using Gridap.FESpaces: VoidBasis
 
 using GridapEmbedded.CSG
 using GridapEmbedded.Interfaces
