@@ -43,7 +43,7 @@ function compute_bbox_dfaces(model::DiscreteModel,cell_to_agg_bbox)
       [ _compute_bbox_dface(dface_to_Dfaces,cell_to_agg_bbox,face) for face in 1:num_faces(gt,d) ]
     bboxes = push!(bboxes,d_bboxes)
   end
-  bboxes
+  bboxes = push!(bboxes,cell_to_agg_bbox)
 end
 
 function _compute_bbox_dface(dface_to_Dfaces,cell_to_agg_bbox,i)
@@ -75,7 +75,7 @@ function __compute_cell_to_dface_bboxes(gt::GridTopology,ctc,dbboxes,cell::Int)
       cdbboxes = vcat(cdbboxes,dbboxes[d][face])
     end
   end
-  cdbboxes = vcat(cdbboxes,ctc[cell][1],ctc[cell][end])
+  cdbboxes = vcat(cdbboxes,dbboxes[D][cell][1],dbboxes[D][cell][end])
 end
 
 function compute_cell_to_dface_bboxes(model::DiscreteModel,cell_to_root)
