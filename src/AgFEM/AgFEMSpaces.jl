@@ -32,7 +32,7 @@ function AgFEMSpace(
   shfns_g_a = lazy_map(Reindex(get_data(shfns_g)),acell_to_cellin)
   shfns_g_a = GenericCellField(shfns_g_a,trian_a,DomainStyle(dofs_f_a))
 
-  # LAGRANGIAN
+  # # LAGRANGIAN
   # dofs_f_a_data = get_data(dofs_f_a)
   # dofs_f_a_bases = map(i->i.basis,dofs_f_a_data)
   # dofs_f_a_isvoid = map(i->i.isvoid,dofs_f_a_data)
@@ -49,42 +49,43 @@ function AgFEMSpace(
   # adofs_f_a_bases = lazy_map(LagrangianDofBasis,dofs_f_a_bases,acell_ref_nodes)
   # adofs_f_a_data = lazy_map(VoidBasis,adofs_f_a_bases,dofs_f_a_isvoid)
   # adofs_f_a = CellDof(adofs_f_a_data,trian_a,DomainStyle(dofs_f_a))
-  # END LAGRANGIAN
+  # # END LAGRANGIAN
 
-  # MODAL
-  dofs_f_a_data = get_data(dofs_f_a)
-  dofs_f_a_bases = map(i->i.basis,dofs_f_a_data)
-  lag_dofs_f_a_bases = map(i->i.basis.dof_basis,dofs_f_a_data)
-  dofs_f_a_isvoid = map(i->i.isvoid,dofs_f_a_data)
+  # # MODAL
+  # dofs_f_a_data = get_data(dofs_f_a)
+  # dofs_f_a_bases = map(i->i.basis,dofs_f_a_data)
+  # lag_dofs_f_a_bases = map(i->i.basis.dof_basis,dofs_f_a_data)
+  # dofs_f_a_isvoid = map(i->i.isvoid,dofs_f_a_data)
 
-  cell_ref_nodes = map(i->i.nodes,lag_dofs_f_a_bases)
-  cell_map = get_cell_map(trian_a)
-  cell_phys_nodes = lazy_map(evaluate,cell_map,cell_ref_nodes)
+  # cell_ref_nodes = map(i->i.nodes,lag_dofs_f_a_bases)
+  # cell_map = get_cell_map(trian_a)
+  # cell_phys_nodes = lazy_map(evaluate,cell_map,cell_ref_nodes)
 
-  cell_map = get_cell_map(trian)
-  acell_map = lazy_map(Reindex(cell_map),acell_to_cellin)
-  acell_invmap = lazy_map(inverse_map,acell_map)
-  acell_ref_nodes = lazy_map(evaluate,acell_invmap,cell_phys_nodes)
+  # cell_map = get_cell_map(trian)
+  # acell_map = lazy_map(Reindex(cell_map),acell_to_cellin)
+  # acell_invmap = lazy_map(inverse_map,acell_map)
+  # acell_ref_nodes = lazy_map(evaluate,acell_invmap,cell_phys_nodes)
 
-  lag_adofs_f_a_bases = lazy_map(LagrangianDofBasis,lag_dofs_f_a_bases,acell_ref_nodes)
-  adofs_f_a_bases = lazy_map(linear_combination,dofs_f_a_bases,lag_adofs_f_a_bases)
-  adofs_f_a_data = lazy_map(VoidBasis,adofs_f_a_bases,dofs_f_a_isvoid)
-  adofs_f_a = CellDof(adofs_f_a_data,trian_a,DomainStyle(dofs_f_a))
-  # END MODAL
+  # lag_adofs_f_a_bases = lazy_map(LagrangianDofBasis,lag_dofs_f_a_bases,acell_ref_nodes)
+  # adofs_f_a_bases = lazy_map(linear_combination,dofs_f_a_bases,lag_adofs_f_a_bases)
+  # adofs_f_a_data = lazy_map(VoidBasis,adofs_f_a_bases,dofs_f_a_isvoid)
+  # adofs_f_a = CellDof(adofs_f_a_data,trian_a,DomainStyle(dofs_f_a))
+  # # END MODAL
 
-  # dofs_f_a = change_domain(dofs_f,trian_a,DomainStyle(dofs_f))
-  # cell_phys_shapefuns_g = get_array(change_domain(shfns_g,PhysicalDomain()))
-  # acell_phys_shapefuns_g = lazy_map(Reindex(cell_phys_shapefuns_g),acell_to_cellin)
-  # shfns_g_a = GenericCellField(acell_phys_shapefuns_g,trian_a,PhysicalDomain())
+  # Celldata Defined on trian_a
+  dofs_f_a = change_domain(dofs_f,trian_a,DomainStyle(dofs_f))
+  cell_phys_shapefuns_g = get_array(change_domain(shfns_g,PhysicalDomain()))
+  acell_phys_shapefuns_g = lazy_map(Reindex(cell_phys_shapefuns_g),acell_to_cellin)
+  shfns_g_a = GenericCellField(acell_phys_shapefuns_g,trian_a,PhysicalDomain())
 
-  # acell_to_coeffs = dofs_f_a(shfns_g_a)
-  acell_to_coeffs = adofs_f_a(shfns_g_a)
+  # acell_to_coeffs = adofs_f_a(shfns_g_a)
+  acell_to_coeffs = dofs_f_a(shfns_g_a)
   cell_to_proj = dofs_g(shfns_f)
   acell_to_proj = lazy_map(Reindex(cell_to_proj),acell_to_cellin)
   acell_to_dof_ids = lazy_map(Reindex(get_cell_dof_ids(f)),acell_to_cell)
 
   #acell_to_dofs = reindex(get_cell_dofs(f),acell_to_cell)
-  #n_fdofs = 
+  #n_fdofs =
   #acell_to_fbasis = reindex(get_cell_basis(f),acell_to_cellin)
   #acell_to_gbasis = reindex(cell_shapefuns_g,acell_to_cellin)
   #acell_to_dof_fbasis = reindex(get_cell_dof_basis(f),acell_to_cell)
@@ -194,4 +195,3 @@ function _setup_agfem_constraints(
 
   aggdof_to_fdof, aggdof_to_dofs, aggdof_to_coeffs
 end
-
