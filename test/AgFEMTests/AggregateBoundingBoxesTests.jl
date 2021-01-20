@@ -36,13 +36,15 @@ bboxes = compute_cell_to_dface_bboxes(model,aggregates)
 n_Γ = get_normal_vector(Γ)
 
 order = 1
-degree = 2*order*num_dims(model)
-dΩ = Measure(Ω,degree)
-dΓ = Measure(Γ,degree)
+cutdeg, degree = 2*order*num_dims(model), 2*order
+dΩ = Measure(Ω,cutdeg,degree)
+dΓ = Measure(Γ,cutdeg)
 
+# reffe = ReferenceFE(lagrangian,Float64,order)
 reffe = ReferenceFE(modalC0,Float64,order,bboxes)
 Vstd = TestFESpace(model,reffe,conformity=:H1)
-V = AgFEMSpace(Vstd,aggregates)
+# V = AgFEMSpace(Vstd,aggregates,lagrangian)
+V = AgFEMSpace(Vstd,aggregates,modalC0)
 U = TrialFESpace(V)
 
 const γd = 10.0
