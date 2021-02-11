@@ -93,7 +93,7 @@ end
 
 function compute_cell_to_dface_bboxes(model::RestrictedDiscreteModel,cell_to_root)
   agg_to_root, bboxes = compute_cell_to_dface_bboxes(get_parent_model(model),cell_to_root)
-  cell_to_reffe = ones(eltype(cell_to_root),length(cell_to_root))
-  cell_to_reffe[agg_to_root] .= 2:(length(agg_to_root)+1)
-  cell_to_reffe[get_cell_to_parent_cell(model)], bboxes[agg_to_root]
+  cell_to_bbox = zeros(eltype(cell_to_root),length(cell_to_root))
+  cell_to_bbox[agg_to_root] .= 1:length(agg_to_root)
+  cell_to_bbox[get_cell_to_parent_cell(model)], bboxes[agg_to_root]
 end
