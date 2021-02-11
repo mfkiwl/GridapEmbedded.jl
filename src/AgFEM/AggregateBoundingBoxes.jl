@@ -1,9 +1,3 @@
-function compute_agg_to_root(cell_to_root)
-  cell_to_isagg = lazy_map((i,j) -> i!=j && j>0,1:length(cell_to_root),cell_to_root)
-  isagg_cell_to_cell = findall(cell_to_isagg)
-  unique!(cell_to_root[isagg_cell_to_cell])
-end
-
 function init_bboxes(cell_to_coords)
   # RMK: Assuming first node is min and last node is max of BBox
   [ [cell_to_coords[c][1],cell_to_coords[c][end]] for c in 1:length(cell_to_coords) ]
@@ -85,15 +79,12 @@ function __compute_cell_to_dface_bboxes(gt::GridTopology,ctc,dbboxes,cell::Int)
 end
 
 function compute_cell_to_dface_bboxes(model::DiscreteModel,cell_to_root)
-  agg_to_root = compute_agg_to_root(cell_to_root)
   cbboxes = compute_cell_bboxes(model,cell_to_root)
   dbboxes = compute_bbox_dfaces(model,cbboxes)
-  agg_to_root, _compute_cell_to_dface_bboxes(model,dbboxes)
+  _compute_cell_to_dface_bboxes(model,dbboxes)
 end
 
 function compute_cell_to_dface_bboxes(model::RestrictedDiscreteModel,cell_to_root)
-  agg_to_root, bboxes = compute_cell_to_dface_bboxes(get_parent_model(model),cell_to_root)
-  cell_to_bbox = zeros(eltype(cell_to_root),length(cell_to_root))
-  cell_to_bbox[agg_to_root] .= 1:length(agg_to_root)
-  cell_to_bbox[get_cell_to_parent_cell(model)], bboxes[agg_to_root]
+  bboxes = compute_cell_to_dface_bboxes(get_parent_model(model),cell_to_root)
+  bboxes[get_cell_to_parent_cell(model)]
 end
