@@ -170,8 +170,6 @@ function AgFEMSpace(
   adofs_f_a = CellDof(adofs_f_a_data,trian_a,DomainStyle(dofs_f_a))
 
   acell_to_coeffs = adofs_f_a(shfns_g_a)
-  cell_to_proj = dofs_g(shfns_f)
-  acell_to_proj = lazy_map(Reindex(cell_to_proj),acell_to_cellin)
   acell_to_dof_ids = lazy_map(Reindex(get_cell_dof_ids(f)),acell_to_cell)
 
   aggdof_to_fdof, aggdof_to_dofs, aggdof_to_coeffs = _setup_agfem_constraints(
@@ -180,8 +178,7 @@ function AgFEMSpace(
     acell_to_cell,
     cell_to_acell,
     acell_to_dof_ids,
-    acell_to_coeffs,
-    acell_to_proj)
+    acell_to_coeffs)
 
   FESpaceWithLinearConstraints(aggdof_to_fdof,aggdof_to_dofs,aggdof_to_coeffs,f)
 end
@@ -266,6 +263,91 @@ function _setup_agfem_constraints(
         coeff += coeffs[ldof,c]*proj[c,b]
       end
       aggdof_to_coefs_data[p+b] = coeff
+    end
+  end
+
+  aggdof_to_coeffs = Table(aggdof_to_coefs_data,aggdof_to_dofs_ptrs)
+
+  aggdof_to_fdof, aggdof_to_dofs, aggdof_to_coeffs
+end
+
+function _setup_agfem_constraints(
+  n_fdofs,
+  acell_to_cellin,
+  acell_to_cell,
+  cell_to_acell,
+  acell_to_dof_ids,
+  acell_to_coeffs)
+
+  n_acells = length(acell_to_cell)
+  fdof_to_isagg = fill(true,n_fdofs)
+  fdof_to_acell = zeros(Int32,n_fdofs)
+  fdof_to_ldof = zeros(Int8,n_fdofs)
+  cache = array_cache(acell_to_dof_ids)
+  for acell in 1:n_acells
+    iscut = acell_to_cell[acell] != acell_to_cellin[acell]
+    dofs = getindex!(cache,acell_to_dof_ids,acell)
+    cellin = acell_to_cellin[acell]
+    for (ldof,dof) in enumerate(dofs)
+      if dof > 0
+        fdof = dof
+        fdof_to_isagg[fdof] = iscut && fdof_to_isagg[fdof]
+        fdof_to_acell[fdof] = acell
+        fdof_to_ldof[fdof] = ldof
+      end
+    end
+  end
+
+  aggdof_to_fdof = findall(fdof_to_isagg)
+
+  n_aggdofs = length(aggdof_to_fdof)
+  aggdof_to_dofs_ptrs = zeros(Int32,n_aggdofs+1)
+
+  cache2 = array_cache(acell_to_coeffs)
+
+  for aggdof in 1:n_aggdofs
+    fdof = aggdof_to_fdof[aggdof]
+    acell = fdof_to_acell[fdof]
+    coeffs = getindex!(cache2,acell_to_coeffs,acell)
+    ldof = fdof_to_ldof[fdof]
+    nnzs = count(i->(abs(i)>1.0e-12),coeffs[ldof,:])
+    aggdof_to_dofs_ptrs[aggdof+1] = nnzs
+  end
+
+  length_to_ptrs!(aggdof_to_dofs_ptrs)
+  ndata = aggdof_to_dofs_ptrs[end]-1
+  aggdof_to_dofs_data = zeros(Int,ndata)
+
+  for aggdof in 1:n_aggdofs
+    fdof = aggdof_to_fdof[aggdof]
+    acell = fdof_to_acell[fdof]
+    coeffs = getindex!(cache2,acell_to_coeffs,acell)
+    ldof = fdof_to_ldof[fdof]
+    nzfilter = findall(i->(abs(i)>1.0e-12),coeffs[ldof,:])
+    cellin = acell_to_cellin[acell]
+    acell = cell_to_acell[cellin]
+    dofs = getindex!(cache,acell_to_dof_ids,acell)
+    dofs = dofs[nzfilter]
+    p = aggdof_to_dofs_ptrs[aggdof]-1
+    for (i,dof) in enumerate(dofs)
+      aggdof_to_dofs_data[p+i] = dof
+    end
+  end
+
+  aggdof_to_dofs = Table(aggdof_to_dofs_data,aggdof_to_dofs_ptrs)
+
+  T = eltype(eltype(acell_to_coeffs))
+
+  aggdof_to_coefs_data = zeros(T,ndata)
+  for aggdof in 1:n_aggdofs
+    fdof = aggdof_to_fdof[aggdof]
+    acell = fdof_to_acell[fdof]
+    coeffs = getindex!(cache2,acell_to_coeffs,acell)
+    ldof = fdof_to_ldof[fdof]
+    nzfilter = findall(i->(abs(i)>1.0e-12),coeffs[ldof,:])
+    p = aggdof_to_dofs_ptrs[aggdof]-1
+    for (i,b) in enumerate(nzfilter)
+      aggdof_to_coefs_data[p+i] = coeffs[ldof,b]
     end
   end
 
