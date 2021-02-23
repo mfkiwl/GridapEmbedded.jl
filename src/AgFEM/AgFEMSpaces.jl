@@ -107,8 +107,6 @@ function AgFEMSpace(
   adofs_f_a = CellDof(adofs_f_a_data,trian_a,DomainStyle(dofs_f_a))
 
   acell_to_coeffs = adofs_f_a(shfns_g_a)
-  cell_to_proj = dofs_g(shfns_f)
-  acell_to_proj = lazy_map(Reindex(cell_to_proj),acell_to_cellin)
   acell_to_dof_ids = lazy_map(Reindex(get_cell_dof_ids(f)),acell_to_cell)
 
   aggdof_to_fdof, aggdof_to_dofs, aggdof_to_coeffs = _setup_agfem_constraints(
@@ -117,8 +115,7 @@ function AgFEMSpace(
     acell_to_cell,
     cell_to_acell,
     acell_to_dof_ids,
-    acell_to_coeffs,
-    acell_to_proj)
+    acell_to_coeffs)
 
   FESpaceWithLinearConstraints(aggdof_to_fdof,aggdof_to_dofs,aggdof_to_coeffs,f)
 end

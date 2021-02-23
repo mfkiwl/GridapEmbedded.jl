@@ -12,7 +12,8 @@ using AbstractPlotting.MakieLayout
 using AlgebraicMultigrid
 import IterativeSolvers: cg
 
-u(x) = (x[1] - x[2])^6
+const k = 2*pi
+u(x) = sin(k*x[1])*x[2]
 f(x) = -Δ(u)(x)
 ud(x) = u(x)
 
@@ -20,13 +21,13 @@ const R = 0.42
 
 function run(n::Int,order::Int)
 
-  # geom = disk(R,x0=Fields.Point(0.5,0.5))
-  # partition = (n,n)
-  # domain = (0,1,0,1)
+  geom = disk(R,x0=Fields.Point(0.5,0.5))
+  partition = (n,n)
+  domain = (0,1,0,1)
 
-  geom = sphere(R,x0=Fields.Point(0.5,0.5,0.5))
-  partition = (n,n,n)
-  domain = (0,1,0,1,0,1)
+  # geom = sphere(R,x0=Fields.Point(0.5,0.5,0.5))
+  # partition = (n,n,n)
+  # domain = (0,1,0,1,0,1)
 
   bgmodel = CartesianDiscreteModel(domain,partition)
   h = (domain[2]-domain[1])/n
@@ -78,7 +79,7 @@ function run(n::Int,order::Int)
   b = get_vector(op)
 
   p = aspreconditioner(smoothed_aggregation(A))
-  ur, ch = cg(A,b,Pl=p,log=true,maxiter=10000,reltol=1.0e-16)
+  ur, ch = cg(A,b,Pl=p,log=true,maxiter=10000,reltol=1.0e-15)
   iteM = ch.iters
 
   uh = FEFunction(U,ur)
@@ -98,7 +99,7 @@ function run(n::Int,order::Int)
   b = get_vector(op)
 
   p = aspreconditioner(smoothed_aggregation(A))
-  ur, ch = cg(A,b,Pl=p,log=true,maxiter=10000,reltol=1.0e-16)
+  ur, ch = cg(A,b,Pl=p,log=true,maxiter=10000,reltol=1.0e-15)
   iteN = ch.iters
 
   uh = FEFunction(U,ur)
@@ -154,8 +155,8 @@ function plot()
   axC = layout[1,3] = LAxis(scene)
   axI = layout[1,4] = LAxis(scene)
 
-  # nes = [ [8,16,32,64,128,256,512], [6,12,24,48,96,192], [6,12,24,48,96], [6,12,24,48,96], [6,12,24,48] ]
-  nes = [ [8,16,32,64], [6,12,24], [6], [6,12,24], [6,12,24,48] ]
+  nes = [ [8,16,32,64,128,256,512], [6,12,24,48,96,192], [6,12,24,48,96], [6,12,24,48,96], [6,12,24,48] ]
+  # nes = [ [8,16], [6], [6,24], [6,12,24], [6,12,24,48] ]
 
   ndofs, el2Ms, eh1Ms, kopMs, iteMs, el2Ns, eh1Ns, kopNs, iteNs = conv_test(nes[1],1)
 
@@ -259,83 +260,83 @@ function plot()
   lineNIT3 = lines!(axI,data,color=:blue,linestyle=:dash,linewidth=2)
   scatNIT3 = scatter!(axI,data,color=:blue,marker=:utriangle,markersize=6.0)
 
-  # ndofs, el2Ms, eh1Ms, kopMs, iteMs, el2Ns, eh1Ns, kopNs, iteNs = conv_test(nes[4],4)
+  ndofs, el2Ms, eh1Ms, kopMs, iteMs, el2Ns, eh1Ns, kopNs, iteNs = conv_test(nes[4],4)
 
-  # data = (log10.(ndofs),log10.(el2Ms))
-  # lineML24 = lines!(axL,data,color=:red,linewidth=2)
-  # scatML24 = scatter!(axL,data,color=:red,marker=:circle,markersize=6.0)
+  data = (log10.(ndofs),log10.(el2Ms))
+  lineML24 = lines!(axL,data,color=:red,linewidth=2)
+  scatML24 = scatter!(axL,data,color=:red,marker=:circle,markersize=6.0)
 
-  # data = (log10.(ndofs),log10.(eh1Ms))
-  # lineMH14 = lines!(axH,data,color=:red,linewidth=2)
-  # scatMH14 = scatter!(axH,data,color=:red,marker=:xcross,markersize=6.0)
+  data = (log10.(ndofs),log10.(eh1Ms))
+  lineMH14 = lines!(axH,data,color=:red,linewidth=2)
+  scatMH14 = scatter!(axH,data,color=:red,marker=:xcross,markersize=6.0)
 
-  # data = (log10.(ndofs),log10.(kopMs))
-  # lineMCN4 = lines!(axC,data,color=:red,linewidth=2)
-  # scatMCN4 = scatter!(axC,data,color=:red,marker=:diamond,markersize=6.0)
+  data = (log10.(ndofs),log10.(kopMs))
+  lineMCN4 = lines!(axC,data,color=:red,linewidth=2)
+  scatMCN4 = scatter!(axC,data,color=:red,marker=:diamond,markersize=6.0)
 
-  # data = (log10.(ndofs),log10.(iteMs))
-  # lineMIT4 = lines!(axI,data,color=:red,linewidth=2)
-  # scatMIT4 = scatter!(axI,data,color=:red,marker=:utriangle,markersize=6.0)
+  data = (log10.(ndofs),log10.(iteMs))
+  lineMIT4 = lines!(axI,data,color=:red,linewidth=2)
+  scatMIT4 = scatter!(axI,data,color=:red,marker=:utriangle,markersize=6.0)
 
-  # # data = (log10.(ndofs),log10.(el2Ns))
-  # # lineNL24 = lines!(axL,data,color=:blue,linestyle=:dash,linewidth=2)
-  # # scatNL24 = scatter!(axL,data,color=:blue,marker=:circle,markersize=6.0)
+  data = (log10.(ndofs),log10.(el2Ns))
+  lineNL24 = lines!(axL,data,color=:blue,linestyle=:dash,linewidth=2)
+  scatNL24 = scatter!(axL,data,color=:blue,marker=:circle,markersize=6.0)
 
-  # # data = (log10.(ndofs),log10.(eh1Ns))
-  # # lineNH14 = lines!(axH,data,color=:blue,linestyle=:dash,linewidth=2)
-  # # scatNH14 = scatter!(axH,data,color=:blue,marker=:xcross,markersize=6.0)
+  data = (log10.(ndofs),log10.(eh1Ns))
+  lineNH14 = lines!(axH,data,color=:blue,linestyle=:dash,linewidth=2)
+  scatNH14 = scatter!(axH,data,color=:blue,marker=:xcross,markersize=6.0)
 
-  # data = (log10.(ndofs),log10.(kopNs))
-  # lineNCN4 = lines!(axC,data,color=:blue,linestyle=:dash,linewidth=2)
-  # scatNCN4 = scatter!(axC,data,color=:blue,marker=:diamond,markersize=6.0)
+  data = (log10.(ndofs),log10.(kopNs))
+  lineNCN4 = lines!(axC,data,color=:blue,linestyle=:dash,linewidth=2)
+  scatNCN4 = scatter!(axC,data,color=:blue,marker=:diamond,markersize=6.0)
 
-  # data = (log10.(ndofs),log10.(iteNs))
-  # lineNIT4 = lines!(axI,data,color=:blue,linestyle=:dash,linewidth=2)
-  # scatNIT4 = scatter!(axI,data,color=:blue,marker=:utriangle,markersize=6.0)
+  data = (log10.(ndofs),log10.(iteNs))
+  lineNIT4 = lines!(axI,data,color=:blue,linestyle=:dash,linewidth=2)
+  scatNIT4 = scatter!(axI,data,color=:blue,marker=:utriangle,markersize=6.0)
 
-  # ndofs, el2Ms, eh1Ms, kopMs, iteMs, el2Ns, eh1Ns, kopNs, iteNs = conv_test(nes[5],5)
+  ndofs, el2Ms, eh1Ms, kopMs, iteMs, el2Ns, eh1Ns, kopNs, iteNs = conv_test(nes[5],5)
 
-  # data = (log10.(ndofs),log10.(el2Ms))
-  # lineML25 = lines!(axL,data,color=:red,linewidth=2)
-  # scatML25 = scatter!(axL,data,color=:red,marker=:circle,markersize=6.0)
+  data = (log10.(ndofs),log10.(el2Ms))
+  lineML25 = lines!(axL,data,color=:red,linewidth=2)
+  scatML25 = scatter!(axL,data,color=:red,marker=:circle,markersize=6.0)
 
-  # data = (log10.(ndofs),log10.(eh1Ms))
-  # lineMH15 = lines!(axH,data,color=:red,linewidth=2)
-  # scatMH15 = scatter!(axH,data,color=:red,marker=:xcross,markersize=6.0)
+  data = (log10.(ndofs),log10.(eh1Ms))
+  lineMH15 = lines!(axH,data,color=:red,linewidth=2)
+  scatMH15 = scatter!(axH,data,color=:red,marker=:xcross,markersize=6.0)
 
-  # data = (log10.(ndofs),log10.(kopMs))
-  # lineMCN5 = lines!(axC,data,color=:red,linewidth=2)
-  # scatMCN5 = scatter!(axC,data,color=:red,marker=:diamond,markersize=6.0)
+  data = (log10.(ndofs),log10.(kopMs))
+  lineMCN5 = lines!(axC,data,color=:red,linewidth=2)
+  scatMCN5 = scatter!(axC,data,color=:red,marker=:diamond,markersize=6.0)
 
-  # data = (log10.(ndofs),log10.(iteMs))
-  # lineMIT5 = lines!(axI,data,color=:red,linewidth=2)
-  # scatMIT5 = scatter!(axI,data,color=:red,marker=:utriangle,markersize=6.0)
+  data = (log10.(ndofs),log10.(iteMs))
+  lineMIT5 = lines!(axI,data,color=:red,linewidth=2)
+  scatMIT5 = scatter!(axI,data,color=:red,marker=:utriangle,markersize=6.0)
 
-  # # data = (log10.(ndofs),log10.(el2Ns))
-  # # lineNL25 = lines!(axL,data,color=:blue,linestyle=:dash,linewidth=2)
-  # # scatNL25 = scatter!(axL,data,color=:blue,marker=:circle,markersize=6.0)
+  data = (log10.(ndofs),log10.(el2Ns))
+  lineNL25 = lines!(axL,data,color=:blue,linestyle=:dash,linewidth=2)
+  scatNL25 = scatter!(axL,data,color=:blue,marker=:circle,markersize=6.0)
 
-  # # data = (log10.(ndofs),log10.(eh1Ns))
-  # # lineNH15 = lines!(axH,data,color=:blue,linestyle=:dash,linewidth=2)
-  # # scatNH15 = scatter!(axH,data,color=:blue,marker=:xcross,markersize=6.0)
+  data = (log10.(ndofs),log10.(eh1Ns))
+  lineNH15 = lines!(axH,data,color=:blue,linestyle=:dash,linewidth=2)
+  scatNH15 = scatter!(axH,data,color=:blue,marker=:xcross,markersize=6.0)
 
-  # data = (log10.(ndofs),log10.(kopNs))
-  # lineNCN5 = lines!(axC,data,color=:blue,linestyle=:dash,linewidth=2)
-  # scatNCN5 = scatter!(axC,data,color=:blue,marker=:diamond,markersize=6.0)
+  data = (log10.(ndofs),log10.(kopNs))
+  lineNCN5 = lines!(axC,data,color=:blue,linestyle=:dash,linewidth=2)
+  scatNCN5 = scatter!(axC,data,color=:blue,marker=:diamond,markersize=6.0)
 
-  # # data = (log10.(ndofs),log10.(iteNs))
-  # # lineNIT5 = lines!(axI,data,color=:blue,linestyle=:dash,linewidth=2)
-  # # scatNIT5 = scatter!(axI,data,color=:blue,marker=:utriangle,markersize=6.0)
+  data = (log10.(ndofs),log10.(iteNs))
+  lineNIT5 = lines!(axI,data,color=:blue,linestyle=:dash,linewidth=2)
+  scatNIT5 = scatter!(axI,data,color=:blue,marker=:utriangle,markersize=6.0)
 
-  limits!(axL,0.65,2.85,-13.5,-1.5)
+  limits!(axL,0.65,2.85,-12.5,-0.5)
   axL.xticks = 0.75:0.5:2.75
-  axL.yticks = -13.0:1.0:-2.0
+  axL.yticks = -12.0:1.0:-1.0
   axL.xlabel="log10(N^(1/D))"
   axL.ylabel="log10(L2 Abs error)"
 
-  limits!(axH,0.65,2.85,-9.5,-0.5)
+  limits!(axH,0.65,2.85,-8.5,0.5)
   axH.xticks = 0.75:0.5:2.75
-  axH.yticks = -9.0:1.0:-1.0
+  axH.yticks = -8.0:1.0:0.0
   axH.xlabel="log10(N^(1/D))"
   axH.ylabel="log10(H1 Abs error)"
 
@@ -376,8 +377,8 @@ function plot()
   leg.labelsize = 11.0
   layout[1,5] = leg
 
-  # save("ModalC0AgFEM2D.png",scene)
-  save("ModalC0AgFEM3D.png",scene)
+  save("ModalC0AgFEM2D.png",scene)
+  # save("ModalC0AgFEM3D.png",scene)
   scene
 
 end
