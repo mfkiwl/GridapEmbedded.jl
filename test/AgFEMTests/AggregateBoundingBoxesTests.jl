@@ -1,66 +1,67 @@
 module AggregateBoundingBoxesTests
 
   using Gridap
-  using Gridap.Geometry
   using GridapEmbedded
   using GridapEmbedded.AgFEM
-  using GridapPETSc
-  using MPI
+  # using GridapPETSc
+  # using MPI
   using Test
 
-  if !MPI.Initialized()
-    MPI.Init()
-  end
+  # if !MPI.Initialized()
+  #   MPI.Init()
+  # end
 
-  tol = 1e-16
-  maxits = 1000
-  GridapPETSc.Init(["-ksp_type", "cg",
-                    "-ksp_monitor",
-                    "-ksp_rtol", "$tol",
-                    "-ksp_converged_reason",
-                    "-ksp_max_it", "$maxits",
-                    "-ksp_norm_type", "unpreconditioned",
-                    "-ksp_view",
-                    "-pc_type","gamg",
-                    "-pc_gamg_type","agg",
-                    "-pc_gamg_esteig_ksp_type","cg",
-                    "-mg_levels_esteig_ksp_type","cg",
-                    "-mg_coarse_sub_pc_type","cholesky",
-                    "-mg_coarse_sub_pc_factor_mat_ordering_type","nd",
-                    "-pc_gamg_process_eq_limit","50",
-                    "-pc_gamg_square_graph","0",
-                    "-pc_gamg_agg_nsmooths","1"])
+  # tol = 1e-16
+  # maxits = 1000
+  # GridapPETSc.Init(["-ksp_type", "cg",
+  #                   "-ksp_monitor",
+  #                   "-ksp_rtol", "$tol",
+  #                   "-ksp_converged_reason",
+  #                   "-ksp_max_it", "$maxits",
+  #                   "-ksp_norm_type", "unpreconditioned",
+  #                   "-ksp_view",
+  #                   "-pc_type","gamg",
+  #                   "-pc_gamg_type","agg",
+  #                   "-pc_gamg_esteig_ksp_type","cg",
+  #                   "-mg_levels_esteig_ksp_type","cg",
+  #                   "-mg_coarse_sub_pc_type","cholesky",
+  #                   "-mg_coarse_sub_pc_factor_mat_ordering_type","nd",
+  #                   "-pc_gamg_process_eq_limit","50",
+  #                   "-pc_gamg_square_graph","0",
+  #                   "-pc_gamg_agg_nsmooths","1"])
 
   # using AlgebraicMultigrid
   # import IterativeSolvers: cg
 
-  u(x) = x[1] - x[2]
+  u(x) = x[1]+x[2]
   f(x) = -Δ(u)(x)
   ud(x) = u(x)
 
   const R = 0.42
 
-  n = 8
+  n = 12
   order = 1
 
-  # geom = disk(R,x0=Point(0.5,0.5))
-  # partition = (n,n)
-  # domain = (0,1,0,1)
+  # geom = square(L=0.63,x0=Point(0.5,0.5))
+  geom = disk(R,x0=Point(0.5,0.5))
+  partition = (n,n)
+  domain = (0,1,0,1)
 
-  geom = sphere(R,x0=Point(0.5,0.5,0.5))
-  partition = (n,n,n)
-  domain = (0,1,0,1,0,1)
+  # geom = sphere(R,x0=Point(0.5,0.5,0.5))
+  # geom = doughnut(0.21,0.10,x0=Point(0.5,0.5,0.5))
+  # partition = (n,n,n)
+  # domain = (0,1,0,1,0,1)
 
   bgmodel = CartesianDiscreteModel(domain,partition)
   h = (domain[2]-domain[1])/n
   cutgeo = cut(bgmodel,geom)
   model = DiscreteModel(cutgeo)
 
-  # γ₀ = 0.65
-  # eᵧ = (3-2/num_dims(model))/(2*order+1-2/num_dims(model))
-  # γ = γ₀^eᵧ
-  # strategy = AggregateCutCellsByThreshold(γ)
-  strategy = AggregateAllCutCells()
+  γ₀ = 0.65
+  eᵧ = (3-2/num_dims(model))/(2*order+1-2/num_dims(model))
+  γ = γ₀^eᵧ
+  strategy = AggregateCutCellsByThreshold(γ)
+  # strategy = AggregateAllCutCells()
   aggregates = aggregate(strategy,cutgeo,geom)
   bboxes = compute_cell_to_dface_bboxes(model,aggregates)
 
@@ -91,9 +92,9 @@ module AggregateBoundingBoxesTests
     ∫( v*f ) * dΩ +
     ∫( (γd/h)*v*ud - (n_Γ⋅∇(v))*ud ) * dΓ
 
-  # op = AffineFEOperator(a,l,U,V)
+  op = AffineFEOperator(a,l,U,V)
 
-  # uh = solve(op)
+  uh = solve(op)
 
   # A = get_matrix(op)
   # b = get_vector(op)
@@ -101,14 +102,14 @@ module AggregateBoundingBoxesTests
   # ur, ch = cg(A,b,Pl=p,log=true)
   # uh = FEFunction(U,ur)
 
-  ass = SparseMatrixAssembler(SparseMatrixCSR{0,PetscReal,PetscInt},U,V)
-  op = AffineFEOperator(a,l,ass)
+  # ass = SparseMatrixAssembler(SparseMatrixCSR{0,PetscReal,PetscInt},U,V)
+  # op = AffineFEOperator(a,l,ass)
 
-  ls = PETScSolver()
-  solver = LinearFESolver(ls)
+  # ls = PETScSolver()
+  # solver = LinearFESolver(ls)
 
-  uh = solve(solver,op)
-  iters = PETSc_get_number_of_iterations(ls)
+  # uh = solve(solver,op)
+  # iters = PETSc_get_number_of_iterations(ls)
 
   e = u - uh
 
@@ -125,14 +126,14 @@ module AggregateBoundingBoxesTests
   # writevtk(Ω_bg,"trian_S",nsubcells=10,cellfields=["uh"=>uh])
   # writevtk(Ω,"trian_O",cellfields=["uh"=>uh])
 
-  GridapPETSc.Finalize()
+  # GridapPETSc.Finalize()
 
   @test el2/ul2 < 1.e-8
   @test eh1/uh1 < 1.e-7
 
-  if MPI.Initialized() & !MPI.Finalized()
-    MPI.Finalize()
-  end
+  # if MPI.Initialized() & !MPI.Finalized()
+  #   MPI.Finalize()
+  # end
 
   # sktrian = BoundaryTriangulation(bgmodel,tags=collect(1:9))
 

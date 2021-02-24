@@ -1,8 +1,10 @@
+using DrWatson
+@quickactivate "GridapEmbedded"
+
 using Gridap
-using Gridap.Fields
-using Gridap.Geometry
 using GridapEmbedded
 using GridapEmbedded.AgFEM
+
 using LinearAlgebra: cond
 using SparseArrays: SparseMatrixCSC
 
@@ -30,33 +32,47 @@ GridapPETSc.Init(["-ksp_type", "cg",
                   "-pc_gamg_agg_nsmooths","1"])
 
 const R = 0.42
+const ω = 2*pi
+exact(x) = x[1]+x[2]
+sinus(x) = sin(ω*x[1])*x[2]
 
-# u(x) = x[1] + x[2]
-const k = 2*pi
-u(x) = sin(k*x[1])*x[2]
-f(x) = -Δ(u)(x)
-ud(x) = u(x)
+function run(n::Int,k::Int,d::Int,t::Int,s::Int,g::Int)
 
-function run(n::Int,order::Int)
+  u(x) = (1-s)*exact(x)+s*sinus(x)
+  f(x) = -Δ(u)(x)
+  ud(x) = u(x)
 
-  geom = disk(R,x0=Fields.Point(0.5,0.5))
-  partition = (n,n)
-  domain = (0,1,0,1)
-
-  # geom = sphere(R,x0=Fields.Point(0.5,0.5,0.5))
-  # partition = (n,n,n)
-  # domain = (0,1,0,1,0,1)
+  if d == 2
+    if g == 0
+      geom = disk(R,x0=Point(0.5,0.5))
+    else
+      geom = square(L=0.63,x0=Point(0.5,0.5))
+    end
+    partition = (n,n)
+    domain = (0,1,0,1)
+  else
+    if g == 0
+      geom = sphere(R,x0=Point(0.5,0.5,0.5))
+    else
+      geom = doughnut(0.21,0.1,x0=Point(0.5,0.5,0.5))
+    end
+    partition = (n,n,n)
+    domain = (0,1,0,1,0,1)
+  end
 
   bgmodel = CartesianDiscreteModel(domain,partition)
   h = (domain[2]-domain[1])/n
   cutgeo = cut(bgmodel,geom)
   model = DiscreteModel(cutgeo)
 
-  # γ₀ = 0.65
-  # eᵧ = (3-2/num_dims(model))/(2*order+1-2/num_dims(model))
-  # γ = γ₀^eᵧ
-  # strategy = AggregateCutCellsByThreshold(γ)
-  strategy = AggregateAllCutCells()
+  if t == 0
+    γ₀ = 0.65
+    eᵧ = (3-2/num_dims(model))/(2*k+1-2/num_dims(model))
+    γ = γ₀^eᵧ
+    strategy = AggregateCutCellsByThreshold(γ)
+  else
+    strategy = AggregateAllCutCells()
+  end
 
   aggregates = aggregate(strategy,cutgeo,geom)
   bboxes = compute_cell_to_dface_bboxes(model,aggregates)
@@ -68,11 +84,11 @@ function run(n::Int,order::Int)
   n_Γ = get_normal_vector(Γ)
 
   D = num_dims(model)
-  cutdeg, degree = 2*D*order, 2*order
+  cutdeg, degree = 2*D*k, 2*k
   dΩ = Measure(Ω,cutdeg,degree)
   dΓ = Measure(Γ,cutdeg)
 
-  γd = 2.5*order^2
+  γd = 5.0*k^2
 
   a(u,v) =
     ∫( ∇(u)⋅∇(v) ) * dΩ +
@@ -85,7 +101,7 @@ function run(n::Int,order::Int)
   l2(u) = sqrt(sum( ∫( u*u )*dΩ ))
   h1(u) = sqrt(sum( ∫( u*u + ∇(u)⋅∇(u) )*dΩ ))
 
-  reffe = ReferenceFE(modalC0,Float64,order,bboxes)
+  reffe = ReferenceFE(modalC0,Float64,k,bboxes)
   Vstd = TestFESpace(model,reffe,conformity=:H1)
   V = AgFEMSpace(Vstd,aggregates,modalC0)
   U = TrialFESpace(V)
@@ -105,72 +121,73 @@ function run(n::Int,order::Int)
   el2M = l2(e)
   eh1M = h1(e)
 
-  reffe = ReferenceFE(lagrangian,Float64,order)
-  Vstd = TestFESpace(model,reffe,conformity=:H1)
-  V = AgFEMSpace(Vstd,aggregates,lagrangian)
-  U = TrialFESpace(V)
+  if k != 1
+    reffe = ReferenceFE(lagrangian,Float64,k)
+    Vstd = TestFESpace(model,reffe,conformity=:H1)
+    V = AgFEMSpace(Vstd,aggregates,lagrangian)
+    U = TrialFESpace(V)
 
-  ass = SparseMatrixAssembler(SparseMatrixCSR{0,PetscReal,PetscInt},U,V)
-  A = convert(SparseMatrixCSC, get_matrix(op))
-  kopN = cond(A,1) # https://github.com/JuliaLang/julia/issues/6485
+    ass = SparseMatrixAssembler(SparseMatrixCSR{0,PetscReal,PetscInt},U,V)
+    op = AffineFEOperator(a,l,ass)
+    A = convert(SparseMatrixCSC, get_matrix(op))
+    kopN = cond(A,1) # https://github.com/JuliaLang/julia/issues/6485
 
-  ls = PETScSolver()
-  solver = LinearFESolver(ls)
+    ls = PETScSolver()
+    solver = LinearFESolver(ls)
 
-  uh = solve(solver,op)
-  iteN = PETSc_get_number_of_iterations(ls)
+    uh = solve(solver,op)
+    iteN = PETSc_get_number_of_iterations(ls)
 
-  e = u - uh
-  el2N = l2(e)
-  eh1N = h1(e)
+    e = u - uh
+    el2N = l2(e)
+    eh1N = h1(e)
+  else
+    el2N = el2M
+    eh1N = eh1M
+    kopN = kopM
+    iteN = iteM
+  end
 
   num_free_dofs(U)^(1/D), el2M, eh1M, kopM, iteM, el2N, eh1N, kopN, iteN
 
 end
 
-function conv_test(ns,order)
-
-  ndofs = Float64[]
-  el2Ms = Float64[]
-  eh1Ms = Float64[]
-  kopMs = Float64[]
-  iteMs = Float64[]
-  el2Ns = Float64[]
-  eh1Ns = Float64[]
-  kopNs = Float64[]
-  iteNs = Float64[]
-
-  for n in ns
-
-    @time ndof, el2M, eh1M, kopM, iteM, el2N, eh1N, kopN, iteN = run(n,order)
-    println("completed: ",n," ",order)
-
-    push!(ndofs,ndof)
-    push!(el2Ms,el2M)
-    push!(eh1Ms,eh1M)
-    push!(kopMs,kopM)
-    push!(iteMs,iteM)
-    push!(el2Ns,el2N)
-    push!(eh1Ns,eh1N)
-    push!(kopNs,kopN)
-    push!(iteNs,iteN)
-
-  end
-
-  (ndofs, el2Ms, eh1Ms, kopMs, iteMs, el2Ns, eh1Ns, kopNs, iteNs)
-
+function run(case::Dict)
+  @unpack n,k,d,t,s,g = case
+  udofs, el2M, eh1M, kopM, iteM, el2N, eh1N, kopN, iteN = run(n,k,d,t,s,g)
+  results = @dict udofs el2M eh1M kopM iteM el2N eh1N kopN iteN
+  merge(case,results)
 end
 
-function plot()
-
-  # nes = [ [8,16,32,64,128,256,512], [6,12,24,48,96,192], [6,12,24,48,96], [6,12,24,48,96], [6,12,24,48] ]
-  nes = [ [8,16], [6,12,24], [6], [6,12,24], [6,12,24,48] ]
-
-  ndofs, el2Ms, eh1Ms, kopMs, iteMs, el2Ns, eh1Ns, kopNs, iteNs = conv_test(nes[1],1)
-
+function run_and_save(case::Dict)
+  produce_or_load(
+    datadir(),
+    case,
+    run,
+    prefix="modalC0",
+    tag=true,
+    verbose=true
+  )
+  return true
 end
 
-plot()
+function run()
+  params = Dict(
+    :n => [12,24],
+    :k => [1,2],
+    :d => [2,3],
+    :t => [0,1],
+    :s => [0,1],
+    :g => [0,1]
+  )
+  dicts = dict_list(params)
+  map(run_and_save,dicts)
+end
+
+@info "Training"
+run(6,1,3,1,0,0)
+@info "Producing"
+run()
 
 GridapPETSc.Finalize()
 
