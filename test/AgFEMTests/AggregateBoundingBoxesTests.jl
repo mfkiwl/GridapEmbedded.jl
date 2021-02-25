@@ -39,7 +39,7 @@ module AggregateBoundingBoxesTests
 
   const R = 0.42
 
-  n = 12
+  n = 6
   order = 1
 
   # geom = square(L=0.63,x0=Point(0.5,0.5))
@@ -57,11 +57,11 @@ module AggregateBoundingBoxesTests
   cutgeo = cut(bgmodel,geom)
   model = DiscreteModel(cutgeo)
 
-  γ₀ = 0.65
-  eᵧ = (3-2/num_dims(model))/(2*order+1-2/num_dims(model))
-  γ = γ₀^eᵧ
-  strategy = AggregateCutCellsByThreshold(γ)
-  # strategy = AggregateAllCutCells()
+  # γ₀ = 0.65
+  # eᵧ = (3-2/num_dims(model))/(2*order+1-2/num_dims(model))
+  # γ = γ₀^eᵧ
+  # strategy = AggregateCutCellsByThreshold(γ)
+  strategy = AggregateAllCutCells()
   aggregates = aggregate(strategy,cutgeo,geom)
   bboxes = compute_cell_to_dface_bboxes(model,aggregates)
 

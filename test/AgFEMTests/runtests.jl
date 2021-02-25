@@ -6,6 +6,6 @@ using Test
 
 @testset "AgFEMSpaces" begin include("AgFEMSpacesTests.jl") end
 
-# @testset "AggregateBoundingBoxes" begin include("AggregateBoundingBoxesTests.jl") end
+@testset "AggregateBoundingBoxes" begin include("AggregateBoundingBoxesTests.jl") end
 
 end # module
