@@ -90,15 +90,13 @@ module ModalC0AgFEMTests
     V = AgFEMSpace(Vstd,aggregates,modalC0)
     U = TrialFESpace(V)
 
-    ass = SparseMatrixAssembler(SparseMatrixCSR{0,PetscReal,PetscInt},U,V)
-    op = AffineFEOperator(a,l,ass)
-    A = convert(SparseMatrixCSC, get_matrix(op))
-    kopM = cond(A,1) # https://github.com/JuliaLang/julia/issues/6485
+    sop = @timed op = AffineFEOperator(a,l,U,V)
+    scn = @timed kopM = cond(get_matrix(op),1)
 
     ls = PETScSolver()
     solver = LinearFESolver(ls)
 
-    uh = solve(solver,op)
+    sso = @timed uh = solve(solver,op)
     iteM = PETSc_get_number_of_iterations(ls)
 
     e = u - uh
@@ -111,10 +109,8 @@ module ModalC0AgFEMTests
       V = AgFEMSpace(Vstd,aggregates,lagrangian)
       U = TrialFESpace(V)
 
-      ass = SparseMatrixAssembler(SparseMatrixCSR{0,PetscReal,PetscInt},U,V)
-      op = AffineFEOperator(a,l,ass)
-      A = convert(SparseMatrixCSC, get_matrix(op))
-      kopN = cond(A,1) # https://github.com/JuliaLang/julia/issues/6485
+      op = AffineFEOperator(a,l,U,V)
+      kopN = cond(get_matrix(op),1)
 
       ls = PETScSolver()
       solver = LinearFESolver(ls)
@@ -132,14 +128,14 @@ module ModalC0AgFEMTests
       iteN = iteM
     end
 
-    num_free_dofs(U)^(1/D), el2M, eh1M, kopM, iteM, el2N, eh1N, kopN, iteN
+    num_free_dofs(U)^(1/D), el2M, eh1M, kopM, iteM, el2N, eh1N, kopN, iteN, sop.time, scn.time, sso.time, sop.bytes, scn.bytes, sso.bytes
 
   end
 
   function compute(case::Dict)
     @unpack n,k,d,t,s,g = case
-    udofs, el2M, eh1M, kopM, iteM, el2N, eh1N, kopN, iteN = compute(n,k,d,t,s,g)
-    results = @dict udofs el2M eh1M kopM iteM el2N eh1N kopN iteN
+    udofs, el2M, eh1M, kopM, iteM, el2N, eh1N, kopN, iteN, top, tcn, tso, bop, bcn, bso = compute(n,k,d,t,s,g)
+    results = @dict udofs el2M eh1M kopM iteM el2N eh1N kopN iteN top tcn tso bop bcn bso
     merge(case,results)
   end
 
@@ -175,13 +171,16 @@ module ModalC0AgFEMTests
                       "-pc_gamg_square_graph","0",
                       "-pc_gamg_agg_nsmooths","1"])
 
+    @info "Training"
+    compute(6,3,2,1,0,0)
+    @info "Producing"
     params = Dict(
-      :n => [12],
-      :k => [1,2],
-      :d => [2,3],
-      :t => [0,1],
-      :s => [0,1],
-      :g => [0,1]
+      :n => [6,8,10,12,14,16,18,20,22,24],
+      :k => [3],
+      :d => [2],
+      :t => [1],
+      :s => [0],
+      :g => [0]
     )
     dicts = dict_list(params)
     map(compute_and_save,dicts)
@@ -194,9 +193,6 @@ module ModalC0AgFEMTests
 
   end
 
-  # @info "Training"
-  # compute(6,1,3,1,0,0)
-  # @info "Producing"
   # compute()
   export tol, maxits
   export compute, compute_and_save

@@ -28,8 +28,8 @@ end
                               "-pc_gamg_agg_nsmooths","1"])
 
 params = Dict(
-  :n => [6],
-  :k => [1,2],
+  :n => [6,12,24,48,96],
+  :k => [1,2,3,4,5],
   :d => [2],
   :t => [0,1],
   :s => [0,1],
@@ -37,9 +37,9 @@ params = Dict(
 )
 dicts = dict_list(params)
 
-@everywhere pidandhost()
 @everywhere @info "Training"
-@everywhere compute(6,1,3,1,0,0)
+@everywhere compute(6,1,2,1,0,0)
+@everywhere compute(6,3,2,1,0,0)
 @everywhere @info "Producing"
 pmap(compute_and_save,dicts)
 
