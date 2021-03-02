@@ -68,9 +68,10 @@ module ModalC0AgFEMTests
     n_Γ = get_normal_vector(Γ)
 
     D = num_dims(model)
-    cutdeg, degree = 2*D*k, 2*k
-    dΩ = Measure(Ω,cutdeg,degree)
-    dΓ = Measure(Γ,cutdeg)
+    cdegm, cdegs, deg = 2*D*k, 2*D*(k-1), 2*k
+    dΩ = Measure(Ω,cdegs,deg)
+    dO = Measure(Ω,cdegm,deg)
+    dΓ = Measure(Γ,cdegm)
 
     γd = 5.0*k^2
 
@@ -82,8 +83,8 @@ module ModalC0AgFEMTests
       ∫( v*f ) * dΩ +
       ∫( (γd/h)*v*ud - (n_Γ⋅∇(v))*ud ) * dΓ
 
-    l2(u) = sqrt(sum( ∫( u*u )*dΩ ))
-    h1(u) = sqrt(sum( ∫( u*u + ∇(u)⋅∇(u) )*dΩ ))
+    l2(u) = sqrt(sum( ∫( u*u )*dO ))
+    h1(u) = sqrt(sum( ∫( ∇(u)⋅∇(u) )*dΩ ))
 
     reffe = ReferenceFE(modalC0,Float64,k,bboxes)
     Vstd = TestFESpace(model,reffe,conformity=:H1)
@@ -157,10 +158,10 @@ module ModalC0AgFEMTests
       MPI.Init()
     end
 
-    GridapPETSc.Init(["-ksp_type", "cg",
-                      "-ksp_rtol", "$tol",
-                      "-ksp_max_it", "$maxits",
-                      "-ksp_norm_type", "unpreconditioned",
+    GridapPETSc.Init(["-ksp_type","cg",
+                      "-ksp_rtol","$tol",
+                      "-ksp_max_it","$maxits",
+                      "-ksp_norm_type","unpreconditioned",
                       "-pc_type","gamg",
                       "-pc_gamg_type","agg",
                       "-pc_gamg_esteig_ksp_type","cg",
@@ -175,7 +176,7 @@ module ModalC0AgFEMTests
     compute(6,3,2,1,0,0)
     @info "Producing"
     params = Dict(
-      :n => [6,8,10,12,14,16,18,20,22,24],
+      :n => [6,8,10,12,14,16,18,20,22],
       :k => [3],
       :d => [2],
       :t => [1],

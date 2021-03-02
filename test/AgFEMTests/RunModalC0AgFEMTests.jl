@@ -41,7 +41,7 @@ dicts = dict_list(params)
 @everywhere compute(6,1,2,1,0,0)
 @everywhere compute(6,3,2,1,0,0)
 @everywhere @info "Producing"
-pmap(compute_and_save,dicts)
+pmap(compute_and_save,dicts,on_error=ex->ex)
 
 @everywhere GridapPETSc.Finalize()
 
