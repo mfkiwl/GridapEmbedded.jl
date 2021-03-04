@@ -68,7 +68,11 @@ module ModalC0AgFEMTests
     n_Γ = get_normal_vector(Γ)
 
     D = num_dims(model)
-    cdegm, cdegs, deg = 2*D*k, 2*D*(k-1), 2*k
+    if k != 1 
+      cdegm, cdegs, deg = 2*D*k, 2*D*(k-1), 2*k
+    else
+      cdegm, cdegs, deg = 2*D*k, 2*D*k, 2*k
+    end
     dΩ = Measure(Ω,cdegs,deg)
     dO = Measure(Ω,cdegm,deg)
     dΓ = Measure(Γ,cdegm)
