@@ -31,6 +31,8 @@ end
 @publish LevelSetCutters square
 @publish LevelSetCutters quadrilateral
 
+@publish MomentFitting compute_hyperplane_coefficients
+
 @publish AgFEM AgFEMSpace
 @publish AgFEM aggregate
 @publish AgFEM color_aggregates

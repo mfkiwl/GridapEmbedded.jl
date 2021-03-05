@@ -1,4 +1,4 @@
-module DraftMomentFitting
+module MomentFittingTests
 
   using Gridap
   using Gridap.CellData
@@ -33,16 +33,16 @@ module DraftMomentFitting
 
   Ωᵇ = Triangulation(bgmodel)
   Γᵉ = EmbeddedBoundary(cutgeo)
-  # writevtk(Γᵉ,"skeletone")
+  writevtk(Γᵉ,"skeletone")
 
   Λ  = GhostSkeleton(cutgeo)
   Γᶠ = SkeletonTriangulation(cutgeo_facets,Λ,geom,CUTIN)
-  # writevtk(Γᶠ,"skeletonf")
+  writevtk(Γᶠ,"skeletonf")
 
   bgfacet_to_inoutcut = compute_bgfacet_to_inoutcut(cfgeom,geom)
   bgfacet_to_mask = lazy_map( a -> a == IN, bgfacet_to_inoutcut )
   Γᵇ = BoundaryTriangulation(cutbgm,bgfacet_to_mask)
-  # writevtk(Γᵇ,"skeletonb")
+  writevtk(Γᵇ,"skeletonb")
 
   dΓᵉ = CellQuadrature(Γᵉ,2*D*order)
   dΓᶠ = CellQuadrature(Γᶠ,2*D*order)
