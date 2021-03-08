@@ -12,8 +12,8 @@ point_to_coords = VectorValue{2,Float64}[(0.0,0.0), (1.0,0.0), (0.0,1.0), (1.0,1
 
 facet_to_normal = VectorValue{2,Float64}[(0.0,-1.0), (1/sqrt(2),1/sqrt(2)), (-1.0,0.0), (-1/sqrt(2),-1/sqrt(2)), (0.0,1.0), (1.0,0.0) ]
 
-coeffs = compute_hyperplane_coefficients(facet_to_points,point_to_coords,facet_to_normal)
+coeffs = compute_hyperplane_coeffs(facet_to_points,point_to_coords,facet_to_normal)
 
-# coeffs = compute_hyperplane_coefficients(facet_to_points,point_to_coords)
+# coeffs = compute_hyperplane_coeffs(facet_to_points,point_to_coords)
 
 # end #module
