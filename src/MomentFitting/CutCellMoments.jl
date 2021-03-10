@@ -18,7 +18,7 @@ end
 function compute_cell_moments(cut::EmbeddedDiscretization{D,T},
                               degree::Int) where{D,T}
   bgtrian = Triangulation(cut.bgmodel)
-  b = MonomialBasis{2}(T,degree)
+  b = MonomialBasis{D}(T,degree)
   v = get_monomial_cell_field(b,bgtrian)
   cut_bgmodel = DiscreteModel(cut,cut.geo,CUT)
   J = compute_monomial_domain_contribution(cut,degree,v)
@@ -34,34 +34,45 @@ function compute_monomial_domain_contribution(cut::EmbeddedDiscretization,
                                               v::CellField)
   Γᵉ = EmbeddedBoundary(cut)
   Λ  = GhostSkeleton(cut)
-
-  cutgeo_facets = cut_facets(cut.bgmodel,cut.geo)
-  Γᶠ = SkeletonTriangulation(cutgeo_facets,Λ,cut.geo,CUTIN)
-  Γᵇ = SkeletonTriangulation(cutgeo_facets,Λ,cut.geo,IN)
+  cutf = cut_facets(cut.bgmodel,cut.geo)
+  Γᶠ = SkeletonTriangulation(cutf,Λ,cut.geo,CUTIN)
+  Γᵇ = SkeletonTriangulation(cutf,Λ,cut.geo,IN)
+  bgfacet_to_inoutcut = compute_bgfacet_to_inoutcut(cutf,cut.geo)
+  bgfacet_to_mask = lazy_map( a -> a == IN, bgfacet_to_inoutcut )
+  Γᵒ = BoundaryTriangulation(cut.bgmodel,bgfacet_to_mask)
 
   dΓᵉ = Measure(Γᵉ,degree)
   dΓᶠ = SkeletonPair(Measure(Γᶠ.⁺,degree),Measure(Γᶠ.⁻,degree))
   dΓᵇ = SkeletonPair(Measure(Γᵇ.⁺,degree),Measure(Γᵇ.⁻,degree))
+  dΓᵒ = Measure(Γᵒ,degree)
 
   cᵉ = compute_hyperplane_coeffs(Γᵉ)
   cᶠ = compute_hyperplane_coeffs(Γᶠ)
   cᵇ = compute_hyperplane_coeffs(Γᵇ)
+  cᵒ = compute_hyperplane_coeffs(Γᵒ)
 
+  @check num_cells(Γᵉ) > 0
   J = ∫(cᵉ*v)*dΓᵉ +
-      ∫(cᶠ.⁺*v)*dΓᶠ.⁺ + ∫(cᶠ.⁻*v)*dΓᶠ.⁻ +
-      ∫(cᵇ.⁺*v)*dΓᵇ.⁺ + ∫(cᵇ.⁻*v)*dΓᵇ.⁻
+      ∫(cᶠ.⁺*v)*dΓᶠ.⁺ + ∫(cᶠ.⁻*v)*dΓᶠ.⁻
+  if num_cells(Γᵇ) > 0
+    J += ∫(cᵇ.⁺*v)*dΓᵇ.⁺ + ∫(cᵇ.⁻*v)*dΓᵇ.⁻
+  end
+  if num_cells(Γᵒ) > 0
+    J += ∫(cᵒ*v)*dΓᵒ
+  end
+  J
 
 end
 
 function compute_monomial_cut_cell_moments(model::RestrictedDiscreteModel,
                                            facet_moments::DomainContribution,
-                                           b::MonomialBasis)
+                                           b::MonomialBasis{D,T}) where {D,T}
   cut_cell_to_moments = CutCellMoments(model,facet_moments)
   for (trian,array) in facet_moments.dict
     add_facet_moments!(cut_cell_to_moments,trian,array)
   end
   o = get_terms_degrees(b)
-  q = 1 ./ ( num_dims(model) .+ o )
+  q = 1 ./ ( D .+ o )
   [ q .* d for d in cut_cell_to_moments.data ]
 end
 
