@@ -37,19 +37,21 @@ function compute_monomial_domain_contribution(cut::EmbeddedDiscretization,
   cutf = cut_facets(cut.bgmodel,cut.geo)
   Γᶠ = SkeletonTriangulation(cutf,Λ,cut.geo,CUTIN)
   Γᵇ = SkeletonTriangulation(cutf,Λ,cut.geo,IN)
-  bgfacet_to_inoutcut = compute_bgfacet_to_inoutcut(cutf,cut.geo)
-  bgfacet_to_mask = lazy_map( a -> a == IN, bgfacet_to_inoutcut )
-  Γᵒ = BoundaryTriangulation(cut.bgmodel,bgfacet_to_mask)
+  Γᵒ = BoundaryTriangulation(cutf,CUTIN)
+  Λ  = BoundaryTriangulation(cut.bgmodel)
+  Γᵖ = BoundaryTriangulation(cutf,Λ,cut.geo,IN)
 
   dΓᵉ = Measure(Γᵉ,degree)
   dΓᶠ = SkeletonPair(Measure(Γᶠ.⁺,degree),Measure(Γᶠ.⁻,degree))
   dΓᵇ = SkeletonPair(Measure(Γᵇ.⁺,degree),Measure(Γᵇ.⁻,degree))
   dΓᵒ = Measure(Γᵒ,degree)
+  dΓᵖ = Measure(Γᵖ,degree)
 
   cᵉ = compute_hyperplane_coeffs(Γᵉ)
   cᶠ = compute_hyperplane_coeffs(Γᶠ)
   cᵇ = compute_hyperplane_coeffs(Γᵇ)
   cᵒ = compute_hyperplane_coeffs(Γᵒ)
+  cᵖ = compute_hyperplane_coeffs(Γᵖ)
 
   @check num_cells(Γᵉ) > 0
   J = ∫(cᵉ*v)*dΓᵉ +
@@ -59,6 +61,9 @@ function compute_monomial_domain_contribution(cut::EmbeddedDiscretization,
   end
   if num_cells(Γᵒ) > 0
     J += ∫(cᵒ*v)*dΓᵒ
+  end
+  if num_cells(Γᵖ) > 0
+    J += ∫(cᵖ*v)*dΓᵖ
   end
   J
 
@@ -98,7 +103,16 @@ end
 function add_facet_moments!(ccm::CutCellMoments,
                             trian::SubFacetBoundaryTriangulation,
                             array::AbstractArray)
-  add_facet_moments!(ccm,trian.facets,array)
+  if length(trian.subfacet_to_facet) > 0
+    subfacet_to_bgcell = lazy_map(Reindex(trian.facets.glue.face_to_cell),trian.subfacet_to_facet)
+    subfacet_to_cut_cell = lazy_map(Reindex(ccm.bgcell_to_cut_cell),subfacet_to_bgcell)
+    l = length(subfacet_to_cut_cell)
+    for i = 1:l
+      ccm.data[subfacet_to_cut_cell[i]] += array[i]
+    end
+  else
+    add_facet_moments!(ccm,trian.facets,array)
+  end
 end
 
 function add_facet_moments!(ccm::CutCellMoments,

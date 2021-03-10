@@ -52,6 +52,11 @@ function BoundaryTriangulation(cut::EmbeddedFacetDiscretization)
   BoundaryTriangulation(cut,facets,cut.geo,(CUTIN,IN))
 end
 
+function BoundaryTriangulation(cut::EmbeddedFacetDiscretization,in_or_out::CutInOrOut)
+  facets = BoundaryTriangulation(cut.bgmodel)
+  BoundaryTriangulation(cut,facets,cut.geo,in_or_out)
+end
+
 function BoundaryTriangulation(cut::EmbeddedFacetDiscretization,tags)
   BoundaryTriangulation(cut,tags,cut.geo,(CUTIN,IN))
 end
@@ -191,7 +196,7 @@ struct SubFacetBoundaryTriangulation{Dc,Dp,T} <: Grid{Dc,Dp}
     subfacet_to_facet_map = _setup_cell_ref_map(subfacets,reffe,cell_types)
     face_ref_map = lazy_map(Reindex(get_cell_ref_map(facets)),subfacet_to_facet)
     cell_ref_map = lazy_map(∘,face_ref_map,subfacet_to_facet_map)
-    
+
     new{Dc,Dp,T}(
       facets,
       subfacets,
@@ -213,4 +218,3 @@ get_cell_to_bgcell(trian::SubFacetBoundaryTriangulation) = trian.cell_ids
 TriangulationStyle(::Type{<:SubFacetBoundaryTriangulation}) = SubTriangulation()
 get_background_triangulation(trian::SubFacetBoundaryTriangulation) = get_background_triangulation(trian.facets)
 get_cell_ref_map(trian::SubFacetBoundaryTriangulation) = trian.cell_ref_map
-
