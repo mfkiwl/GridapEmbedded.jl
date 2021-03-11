@@ -21,17 +21,17 @@ function compute_cell_moments(cut::EmbeddedDiscretization{D,T},
   b = MonomialBasis{D}(T,degree)
   v = get_monomial_cell_field(b,bgtrian)
   cut_bgmodel = DiscreteModel(cut,cut.geo,CUT)
-  J = compute_monomial_domain_contribution(cut,degree,v)
-  in = compute_monomial_cut_cell_moments(cut_bgmodel,J,b)
-  p = check_and_get_polytope(cut)
-  change = compute_change_of_basis(b,p,degree)
-  C = Fill(change,length(in))
-  lazy_map(*,C,in)
+  mon_contribs = compute_monomial_domain_contribution(cut,degree,v)
+  mon_moments = compute_monomial_cut_cell_moments(cut_bgmodel,mon_contribs,b)
+  lag_nodes, lag_to_mon = get_nodes_and_change_of_basis(cut,b,degree)
+  lag_moments = lazy_map(*,Fill(lag_to_mon,length(mon_moments)),mon_moments)
+  lag_moments = map_to_ref_space!(lag_moments,lag_nodes,cut_bgmodel)
+  lag_nodes, lag_moments
 end
 
-function compute_monomial_domain_contribution(cut::EmbeddedDiscretization,
+function compute_monomial_domain_contribution(cut::EmbeddedDiscretization{D,T},
                                               degree::Int,
-                                              v::CellField)
+                                              v::CellField) where {D,T}
   Γᵉ = EmbeddedBoundary(cut)
   Λ  = GhostSkeleton(cut)
   cutf = cut_facets(cut.bgmodel,cut.geo)
@@ -41,11 +41,12 @@ function compute_monomial_domain_contribution(cut::EmbeddedDiscretization,
   Λ  = BoundaryTriangulation(cut.bgmodel)
   Γᵖ = BoundaryTriangulation(cutf,Λ,cut.geo,IN)
 
-  dΓᵉ = Measure(Γᵉ,degree)
-  dΓᶠ = SkeletonPair(Measure(Γᶠ.⁺,degree),Measure(Γᶠ.⁻,degree))
-  dΓᵇ = SkeletonPair(Measure(Γᵇ.⁺,degree),Measure(Γᵇ.⁻,degree))
-  dΓᵒ = Measure(Γᵒ,degree)
-  dΓᵖ = Measure(Γᵖ,degree)
+  cutdeg = 2*D*degree
+  dΓᵉ = Measure(Γᵉ,cutdeg)
+  dΓᶠ = SkeletonPair(Measure(Γᶠ.⁺,cutdeg),Measure(Γᶠ.⁻,cutdeg))
+  dΓᵇ = SkeletonPair(Measure(Γᵇ.⁺,cutdeg),Measure(Γᵇ.⁻,cutdeg))
+  dΓᵒ = Measure(Γᵒ,cutdeg)
+  dΓᵖ = Measure(Γᵖ,cutdeg)
 
   cᵉ = compute_hyperplane_coeffs(Γᵉ)
   cᶠ = compute_hyperplane_coeffs(Γᶠ)
@@ -133,13 +134,25 @@ function add_facet_moments!(ccm::CutCellMoments,
   end
 end
 
-function compute_change_of_basis(b::MonomialBasis{D,T},
-                                 p::Polytope,
-                                 degree::Int) where {D,T}
+function get_nodes_and_change_of_basis(cut::EmbeddedDiscretization{D,T},
+                                       b::MonomialBasis{D,T},
+                                       degree::Int) where {D,T}
+  p = check_and_get_polytope(cut)
   orders = tfill(degree,Val{D}())
   nodes, _ = compute_nodes(p,orders)
   dofs = LagrangianDofBasis(T,nodes)
-  transpose((inv(evaluate(dofs,b))))
+  nodes, transpose((inv(evaluate(dofs,b))))
+end
+
+function map_to_ref_space!(moments::AbstractArray,
+                           nodes::Vector{<:Point},
+                           model::RestrictedDiscreteModel)
+  cell_map = get_cell_map(model)
+  cell_Jt = lazy_map(∇,cell_map)
+  cell_detJt = lazy_map(Operation(det),cell_Jt)
+  cell_nodes = Fill(nodes,num_cells(model))
+  detJt = lazy_map(evaluate,cell_detJt,cell_nodes)
+  moments = lazy_map(Broadcasting(/),moments,detJt)
 end
 
 @inline function check_and_get_polytope(cut::EmbeddedDiscretization)
@@ -151,7 +164,7 @@ function get_monomial_cell_field(b::MonomialBasis{D,T},
   i = Matrix{eltype(T)}(I,length(b),length(b))
   l = linear_combination(i,b)
   m = Fill(l,num_cells(trian))
-  v = GenericCellField(m,trian,ReferenceDomain())
+  GenericCellField(m,trian,PhysicalDomain())
 end
 
 @inline function get_terms_degrees(b::MonomialBasis)
