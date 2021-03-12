@@ -23,8 +23,8 @@ function compute_cell_moments(cut::EmbeddedDiscretization{D,T},
   cut_bgmodel = DiscreteModel(cut,cut.geo,CUT)
   mon_contribs = compute_monomial_domain_contribution(cut,degree,v)
   mon_moments = compute_monomial_cut_cell_moments(cut_bgmodel,mon_contribs,b)
-  lag_nodes, lag_to_mon = get_nodes_and_change_of_basis(cut,b,degree)
-  lag_moments = lazy_map(*,Fill(lag_to_mon,length(mon_moments)),mon_moments)
+  lag_nodes, lag_to_mon = get_nodes_and_change_of_basis(cut_bgmodel,cut,b,degree)
+  lag_moments = lazy_map(*,lag_to_mon,mon_moments)
   lag_moments = map_to_ref_space!(lag_moments,lag_nodes,cut_bgmodel)
   lag_nodes, lag_moments
 end
@@ -134,14 +134,17 @@ function add_facet_moments!(ccm::CutCellMoments,
   end
 end
 
-function get_nodes_and_change_of_basis(cut::EmbeddedDiscretization{D,T},
+function get_nodes_and_change_of_basis(model::RestrictedDiscreteModel,
+                                       cut::EmbeddedDiscretization{D,T},
                                        b::MonomialBasis{D,T},
                                        degree::Int) where {D,T}
   p = check_and_get_polytope(cut)
   orders = tfill(degree,Val{D}())
   nodes, _ = compute_nodes(p,orders)
-  dofs = LagrangianDofBasis(T,nodes)
-  nodes, transpose((inv(evaluate(dofs,b))))
+  coords = get_cell_coordinates(model)
+  dofs = [ LagrangianDofBasis(T,cs) for cs in coords ]
+  change = [ transpose((inv(evaluate(ds,b)))) for ds in dofs ]
+  nodes, change
 end
 
 function map_to_ref_space!(moments::AbstractArray,
