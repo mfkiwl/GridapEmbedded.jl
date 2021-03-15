@@ -15,6 +15,37 @@ function CutCellMoments(model::RestrictedDiscreteModel,
   CutCellMoments(data,bgcell_to_cut_cell)
 end
 
+function MomentFittingQuad(active_mesh::RestrictedTriangulation,
+                           cut::EmbeddedDiscretization,
+                           degree::Int)
+
+  acell_to_point_vals, acell_to_weight_vals = compute_cell_moments(cut,degree)
+  acell_to_weight_vals = collect(get_array(acell_to_weight_vals))
+
+  bgcell_to_inoutcut = compute_bgcell_to_inoutcut(cut)
+  acell_to_bgcell = active_mesh.cell_to_parent_cell
+  acell_to_inoutcut = lazy_map(Reindex(bgcell_to_inoutcut),acell_to_bgcell)
+  acell_to_point_ptrs = lazy_map(i->(i == CUT ? 1 : 2),acell_to_inoutcut)
+
+  quad = map(r->Quadrature(get_polytope(r),2*degree),get_reffes(active_mesh))
+  @assert length(quad) == 1
+  acell_to_point_vals = [acell_to_point_vals,get_coordinates(quad[1])]
+
+  push!(acell_to_weight_vals,get_weights(quad[1]))
+
+  acell_to_is_cut = findall(lazy_map(i->(i == CUT),acell_to_inoutcut))
+  num_quads = length(acell_to_weight_vals)
+  acell_to_weight_ptrs = map(i->(i == IN ? num_quads : 0),acell_to_inoutcut)
+  acell_to_weight_ptrs[acell_to_is_cut] .= 1:length(acell_to_is_cut)
+
+  acell_to_point = CompressedArray(acell_to_point_vals,acell_to_point_ptrs)
+  acell_to_weight = CompressedArray(acell_to_weight_vals,acell_to_weight_ptrs)
+
+  acell_to_quad = [ GenericQuadrature(acell_to_point[i],acell_to_weight[i]) for i in 1:num_quads ]
+  CellQuadrature(acell_to_quad,acell_to_point,acell_to_weight,active_mesh,ReferenceDomain())
+
+end
+
 function compute_cell_moments(cut::EmbeddedDiscretization{D,T},
                               degree::Int) where{D,T}
   bgtrian = Triangulation(cut.bgmodel)
@@ -32,6 +63,7 @@ end
 function compute_monomial_domain_contribution(cut::EmbeddedDiscretization{D,T},
                                               degree::Int,
                                               v::CellField) where {D,T}
+
   Γᵉ = EmbeddedBoundary(cut)
   Λ  = GhostSkeleton(cut)
   cutf = cut_facets(cut.bgmodel,cut.geo)
@@ -145,6 +177,10 @@ function get_nodes_and_change_of_basis(model::RestrictedDiscreteModel,
   dofs = [ LagrangianDofBasis(T,cs) for cs in coords ]
   change = [ transpose((inv(evaluate(ds,b)))) for ds in dofs ]
   nodes, change
+end
+
+function compute_bgcell_to_inoutcut(cut::EmbeddedDiscretization)
+  compute_bgcell_to_inoutcut(cut,cut.geo)
 end
 
 function map_to_ref_space!(moments::AbstractArray,

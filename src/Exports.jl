@@ -31,7 +31,7 @@ end
 @publish LevelSetCutters square
 @publish LevelSetCutters quadrilateral
 
-@publish MomentFitting compute_cell_moments
+@publish MomentFitting MomentFittingQuad
 
 @publish AgFEM AgFEMSpace
 @publish AgFEM aggregate
