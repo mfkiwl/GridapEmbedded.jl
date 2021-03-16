@@ -3,7 +3,7 @@ module MomentFitting
 using Gridap
 using Gridap.Helpers
 using Gridap.Arrays
-using Gridap.Fields: linear_combination
+using Gridap.Fields: linear_combination, IntegrationMap
 
 using Gridap.CellData
 
@@ -31,11 +31,10 @@ import GridapEmbedded.Interfaces: compute_bgcell_to_inoutcut
 
 using GridapEmbedded.LevelSetCutters: _check_and_get_polytope
 
-import LinearAlgebra: I
+import LinearAlgebra: I, cond
 using FillArrays
 
 export MomentFittingQuad
-export compute_cell_moments
 
 include("HyperplaneCoefficients.jl")
 

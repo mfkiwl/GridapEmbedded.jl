@@ -7,6 +7,8 @@ module AggregateBoundingBoxesTests
   # using MPI
   using Test
 
+  using GridapEmbedded.Interfaces: CUT, IN
+
   # if !MPI.Initialized()
   #   MPI.Init()
   # end
@@ -40,7 +42,7 @@ module AggregateBoundingBoxesTests
   const R = 0.42
 
   n = 6
-  order = 1
+  order = 2
 
   # geom = square(L=0.63,x0=Point(0.5,0.5))
   geom = disk(R,x0=Point(0.5,0.5))
@@ -57,6 +59,9 @@ module AggregateBoundingBoxesTests
   cutgeo = cut(bgmodel,geom)
   model = DiscreteModel(cutgeo)
 
+  active_model = DiscreteModel(cutgeo,geom,(CUT,IN))
+  Ωᵃ = Triangulation(active_model)
+
   # γ₀ = 0.65
   # eᵧ = (3-2/num_dims(model))/(2*order+1-2/num_dims(model))
   # γ = γ₀^eᵧ
@@ -72,6 +77,7 @@ module AggregateBoundingBoxesTests
   n_Γ = get_normal_vector(Γ)
 
   cutdeg, degree = 2*num_dims(model)*order, 2*order
+  dΩᵃ = Measure(MomentFittingQuad(Ωᵃ,cutgeo,degree))
   dΩ = Measure(Ω,cutdeg,degree)
   dΓ = Measure(Γ,cutdeg)
 
@@ -85,11 +91,11 @@ module AggregateBoundingBoxesTests
   γd = 5.0*order^2
 
   a(u,v) =
-    ∫( ∇(v)⋅∇(u) ) * dΩ +
+    ∫( ∇(v)⋅∇(u) ) * dΩᵃ +
     ∫( (γd/h)*v*u  - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u ) * dΓ
 
   l(v) =
-    ∫( v*f ) * dΩ +
+    ∫( v*f ) * dΩᵃ +
     ∫( (γd/h)*v*ud - (n_Γ⋅∇(v))*ud ) * dΓ
 
   op = AffineFEOperator(a,l,U,V)
@@ -113,8 +119,8 @@ module AggregateBoundingBoxesTests
 
   e = u - uh
 
-  l2(u) = sqrt(sum( ∫( u*u )*dΩ ))
-  h1(u) = sqrt(sum( ∫( u*u + ∇(u)⋅∇(u) )*dΩ ))
+  l2(u) = sqrt(sum( ∫( u*u )*dΩᵃ ))
+  h1(u) = sqrt(sum( ∫( u*u + ∇(u)⋅∇(u) )*dΩᵃ ))
 
   el2 = l2(e)
   eh1 = h1(e)

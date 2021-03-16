@@ -27,7 +27,7 @@ function MomentFittingQuad(active_mesh::RestrictedTriangulation,
   acell_to_inoutcut = lazy_map(Reindex(bgcell_to_inoutcut),acell_to_bgcell)
   acell_to_point_ptrs = lazy_map(i->(i == CUT ? 1 : 2),acell_to_inoutcut)
 
-  quad = map(r->Quadrature(get_polytope(r),2*degree),get_reffes(active_mesh))
+  quad = map(r->Quadrature(get_polytope(r),degree),get_reffes(active_mesh))
   @assert length(quad) == 1
   acell_to_point_vals = [acell_to_point_vals,get_coordinates(quad[1])]
 
@@ -50,55 +50,71 @@ function compute_cell_moments(cut::EmbeddedDiscretization{D,T},
                               degree::Int) where{D,T}
   bgtrian = Triangulation(cut.bgmodel)
   b = MonomialBasis{D}(T,degree)
-  v = get_monomial_cell_field(b,bgtrian)
   cut_bgmodel = DiscreteModel(cut,cut.geo,CUT)
-  mon_contribs = compute_monomial_domain_contribution(cut,degree,v)
+  mon_contribs = compute_monomial_domain_contribution(cut,b,degree*D)
   mon_moments = compute_monomial_cut_cell_moments(cut_bgmodel,mon_contribs,b)
   lag_nodes, lag_to_mon = get_nodes_and_change_of_basis(cut_bgmodel,cut,b,degree)
   lag_moments = lazy_map(*,lag_to_mon,mon_moments)
-  lag_moments = map_to_ref_space!(lag_moments,lag_nodes,cut_bgmodel)
   lag_nodes, lag_moments
 end
 
 function compute_monomial_domain_contribution(cut::EmbeddedDiscretization{D,T},
-                                              degree::Int,
-                                              v::CellField) where {D,T}
+                                              b::MonomialBasis,
+                                              deg::Int) where {D,T}
 
+  # Embedded facets
   Γᵉ = EmbeddedBoundary(cut)
+  # Interior fitted cut facets
   Λ  = GhostSkeleton(cut)
   cutf = cut_facets(cut.bgmodel,cut.geo)
   Γᶠ = SkeletonTriangulation(cutf,Λ,cut.geo,CUTIN)
-  Γᵇ = SkeletonTriangulation(cutf,Λ,cut.geo,IN)
+  # Boundary fitted cut facets
   Γᵒ = BoundaryTriangulation(cutf,CUTIN)
+  # Interior non-cut facets
+  Γᵇ = SkeletonTriangulation(cutf,Λ,cut.geo,IN)
+  # Boundary non-cut facets
   Λ  = BoundaryTriangulation(cut.bgmodel)
   Γᵖ = BoundaryTriangulation(cutf,Λ,cut.geo,IN)
 
-  cutdeg = 2*D*degree
-  dΓᵉ = Measure(Γᵉ,cutdeg)
-  dΓᶠ = SkeletonPair(Measure(Γᶠ.⁺,cutdeg),Measure(Γᶠ.⁻,cutdeg))
-  dΓᵇ = SkeletonPair(Measure(Γᵇ.⁺,cutdeg),Measure(Γᵇ.⁻,cutdeg))
-  dΓᵒ = Measure(Γᵒ,cutdeg)
-  dΓᵖ = Measure(Γᵖ,cutdeg)
-
-  cᵉ = compute_hyperplane_coeffs(Γᵉ)
-  cᶠ = compute_hyperplane_coeffs(Γᶠ)
-  cᵇ = compute_hyperplane_coeffs(Γᵇ)
-  cᵒ = compute_hyperplane_coeffs(Γᵒ)
-  cᵖ = compute_hyperplane_coeffs(Γᵖ)
-
   @check num_cells(Γᵉ) > 0
-  J = ∫(cᵉ*v)*dΓᵉ +
-      ∫(cᶠ.⁺*v)*dΓᶠ.⁺ + ∫(cᶠ.⁻*v)*dΓᶠ.⁻
+  J = int_c_b(Γᵉ,b,deg) +
+      int_c_b(Γᶠ.⁺,b,deg) + int_c_b(Γᶠ.⁻,b,deg)
   if num_cells(Γᵇ) > 0
-    J += ∫(cᵇ.⁺*v)*dΓᵇ.⁺ + ∫(cᵇ.⁻*v)*dΓᵇ.⁻
+    J += int_c_b(Γᵇ.⁺,b,deg) + int_c_b(Γᵇ.⁻,b,deg)
   end
   if num_cells(Γᵒ) > 0
-    J += ∫(cᵒ*v)*dΓᵒ
+    J += int_c_b(Γᵒ,b,deg)
   end
   if num_cells(Γᵖ) > 0
-    J += ∫(cᵖ*v)*dΓᵖ
+    J += int_c_b(Γᵖ,b,deg)
   end
   J
+
+end
+
+function int_c_b(t::Triangulation,b::MonomialBasis,deg::Int)
+
+  dt = CellQuadrature(t,deg)
+  x_gp_ref_1d = dt.cell_point
+  facet_map = get_cell_ref_map(t)
+  x_gp_ref = lazy_map(evaluate,facet_map,x_gp_ref_1d)
+
+  facet_n = get_facet_normal(t)
+  facet_n_r = lazy_map(evaluate,facet_n,x_gp_ref_1d)
+  c = lazy_map(first,lazy_map(Broadcasting(⋅),facet_n_r,x_gp_ref))
+
+  v = get_monomial_cell_array(b,t)
+  v_gp_ref = lazy_map(evaluate,v,x_gp_ref)
+
+  facet_Jt = lazy_map(∇,facet_map)
+  facet_Jtx = lazy_map(evaluate,facet_Jt,x_gp_ref_1d)
+
+  I_v_in_t = lazy_map(IntegrationMap(),v_gp_ref,dt.cell_weight,facet_Jtx)
+  I_c_v_in_t = lazy_map(Broadcasting(*),c,I_v_in_t)
+
+  cont = DomainContribution()
+  add_contribution!(cont,t,I_c_v_in_t)
+  cont
 
 end
 
@@ -173,9 +189,9 @@ function get_nodes_and_change_of_basis(model::RestrictedDiscreteModel,
   p = check_and_get_polytope(cut)
   orders = tfill(degree,Val{D}())
   nodes, _ = compute_nodes(p,orders)
-  coords = get_cell_coordinates(model)
-  dofs = [ LagrangianDofBasis(T,cs) for cs in coords ]
-  change = [ transpose((inv(evaluate(ds,b)))) for ds in dofs ]
+  dofs = LagrangianDofBasis(T,nodes)
+  change = transpose(inv(evaluate(dofs,b)))
+  change = Fill(change,num_cells(model))
   nodes, change
 end
 
@@ -198,12 +214,11 @@ end
   _check_and_get_polytope(cut.bgmodel.grid)
 end
 
-function get_monomial_cell_field(b::MonomialBasis{D,T},
+function get_monomial_cell_array(b::MonomialBasis{D,T},
                                  trian::Triangulation) where {D,T}
   i = Matrix{eltype(T)}(I,length(b),length(b))
   l = linear_combination(i,b)
   m = Fill(l,num_cells(trian))
-  GenericCellField(m,trian,PhysicalDomain())
 end
 
 @inline function get_terms_degrees(b::MonomialBasis)
