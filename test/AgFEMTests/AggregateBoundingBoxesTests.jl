@@ -42,7 +42,7 @@ module AggregateBoundingBoxesTests
   const R = 0.42
 
   n = 6
-  order = 2
+  order = 1
 
   # geom = square(L=0.63,x0=Point(0.5,0.5))
   geom = disk(R,x0=Point(0.5,0.5))

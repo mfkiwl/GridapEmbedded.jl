@@ -51,7 +51,7 @@ function compute_cell_moments(cut::EmbeddedDiscretization{D,T},
   bgtrian = Triangulation(cut.bgmodel)
   b = MonomialBasis{D}(T,degree)
   cut_bgmodel = DiscreteModel(cut,cut.geo,CUT)
-  mon_contribs = compute_monomial_domain_contribution(cut,b,degree*D)
+  mon_contribs = compute_monomial_domain_contribution(cut,b,degree)
   mon_moments = compute_monomial_cut_cell_moments(cut_bgmodel,mon_contribs,b)
   lag_nodes, lag_to_mon = get_nodes_and_change_of_basis(cut_bgmodel,cut,b,degree)
   lag_moments = lazy_map(*,lag_to_mon,mon_moments)
@@ -77,13 +77,13 @@ function compute_monomial_domain_contribution(cut::EmbeddedDiscretization{D,T},
   Γᵖ = BoundaryTriangulation(cutf,Λ,cut.geo,IN)
 
   @check num_cells(Γᵉ) > 0
-  J = int_c_b(Γᵉ,b,deg) +
-      int_c_b(Γᶠ.⁺,b,deg) + int_c_b(Γᶠ.⁻,b,deg)
+  J = int_c_b(Γᵉ,b,deg*D) +
+      int_c_b(Γᶠ.⁺,b,deg*D) + int_c_b(Γᶠ.⁻,b,deg*D)
   if num_cells(Γᵇ) > 0
     J += int_c_b(Γᵇ.⁺,b,deg) + int_c_b(Γᵇ.⁻,b,deg)
   end
   if num_cells(Γᵒ) > 0
-    J += int_c_b(Γᵒ,b,deg)
+    J += int_c_b(Γᵒ,b,deg*D)
   end
   if num_cells(Γᵖ) > 0
     J += int_c_b(Γᵖ,b,deg)

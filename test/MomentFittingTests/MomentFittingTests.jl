@@ -42,7 +42,7 @@ module MomentFittingTests
     @test sum(∫(uᵃ)*dΩᵃ) - sum(∫(uᶜ)*dΩᶜ) + 1 ≈ 1
   end
 
-  # # CASE 2D 1
+  # CASE 2D 1
   n = 6
   degree = 5
   partition = (n,n)
