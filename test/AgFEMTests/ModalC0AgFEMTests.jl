@@ -66,8 +66,7 @@ module ModalC0AgFEMTests
     bboxes = compute_cell_to_dface_bboxes(model,aggregates)
 
     Ω_bg = Triangulation(bgmodel)
-    a_bgmodel = DiscreteModel(cutgeo,geom,(CUT,IN))
-    Ωᵃ = Triangulation(a_bgmodel)
+    Ω = Triangulation(cutgeo)
     Γ = EmbeddedBoundary(cutgeo)
 
     n_Γ = get_normal_vector(Γ)
@@ -78,31 +77,31 @@ module ModalC0AgFEMTests
     else
       cdegm, cdegs, degm, degs = 2*D*k, 2*D*k, 2*k, 2*k
     end
-    dΩᵃ = Measure(MomentFittingQuad(Ωᵃ,cutgeo,degs))
-    dOᵃ = Measure(MomentFittingQuad(Ωᵃ,cutgeo,degm))
+    dΩ = Measure(Ω,cdegs,degs)
+    dO = Measure(Ω,cdegm,degm)
     dΓ = Measure(Γ,cdegm)
 
     γd = 5.0*k^2
 
     a(u,v) =
-      ∫( ∇(u)⋅∇(v) ) * dΩᵃ +
-      ∫( (γd/h)*u*v  - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u ) * dΓ
+      ∫( ∇(u)⋅∇(v) )dΩ +
+      ∫( (γd/h)*u*v  - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u )dΓ
 
     l(v) =
-      ∫( v*w )dΩᵃ +
+      ∫( v*w )dΩ +
       ∫( (γd/h)*v*ud - (n_Γ⋅∇(v))*ud )dΓ
 
-    l2(u) = sqrt(sum(∫( u*u )dOᵃ))
-    h1(u) = sqrt(sum(∫( ∇(u)⋅∇(u) )dΩᵃ))
+    l2(u) = sqrt(sum(∫( u*u )dO))
+    h1(u) = sqrt(sum(∫( ∇(u)⋅∇(u) )dΩ))
 
     reffe = ReferenceFE(modalC0,Float64,k,bboxes)
     Vstd = TestFESpace(model,reffe,conformity=:H1)
     V = AgFEMSpace(Vstd,aggregates,modalC0)
     U = TrialFESpace(V)
 
-    cell_matvec, bface_matvec = compute_contributions(U,V,a,l,Ωᵃ,Γ)
+    cell_matvec, bface_matvec = compute_contributions(U,V,a,l,Ω,Γ)
     cell_matvec, ccell_to_bgcell =
-      combine_cell_and_bface_contribs(Ω_bg,Ωᵃ,Γ,cell_matvec,bface_matvec)
+      combine_cell_and_bface_contribs(Ω_bg,Ω,Γ,cell_matvec,bface_matvec)
     cell_matvec = attach_constraints_cols(U,cell_matvec,ccell_to_bgcell)
     cell_matvec = attach_constraints_rows(V,cell_matvec,ccell_to_bgcell)
 
@@ -137,9 +136,9 @@ module ModalC0AgFEMTests
       V = AgFEMSpace(Vstd,aggregates,lagrangian)
       U = TrialFESpace(V)
 
-      cell_matvec, bface_matvec = compute_contributions(U,V,a,l,Ωᵃ,Γ)
+      cell_matvec, bface_matvec = compute_contributions(U,V,a,l,Ω,Γ)
       cell_matvec, ccell_to_bgcell =
-        combine_cell_and_bface_contribs(Ω_bg,Ωᵃ,Γ,cell_matvec,bface_matvec)
+        combine_cell_and_bface_contribs(Ω_bg,Ω,Γ,cell_matvec,bface_matvec)
       cell_matvec = attach_constraints_cols(U,cell_matvec,ccell_to_bgcell)
       cell_matvec = attach_constraints_rows(V,cell_matvec,ccell_to_bgcell)
 
@@ -192,7 +191,8 @@ module ModalC0AgFEMTests
       compute,
       prefix="modalC0",
       tag=true,
-      verbose=true
+      verbose=true,
+      suffix="bson"
     )
     return true
   end
@@ -217,30 +217,29 @@ module ModalC0AgFEMTests
                       "-pc_gamg_agg_nsmooths","1"])
 
     @info "Training"
-    udofs, el2M, eh1M, kopM, iteM, el2N, eh1N, kopN, iteN, top, tcn, tso, bop, bcn, bso = compute(12,3,2,1,1,0)
-    println(udofs," ",el2M," ",eh1M," ",kopM," ",iteM," ",el2N," ",eh1N," ",kopN," ",iteN," ",top," ",tcn," ",tso," ",bop," ",bcn," ",bso)
-    # @info "Producing"
-    # params = Dict(
-    #   :n => [6,12,24,48,96],
-    #   :k => [1,2,3],
-    #   :d => [2],
-    #   :t => [0,1],
-    #   :s => [0,1],
-    #   :g => [0,1]
-    # )
-    # dicts = dict_list(params)
-    # map(compute_and_save,dicts)
+    compute(6,3,2,1,1,0)
+    @info "Producing"
+    params = Dict(
+      :n => [6,12,24],
+      :k => [1,2,3],
+      :d => [2],
+      :t => [0,1],
+      :s => [0,1],
+      :g => [0,1]
+    )
+    dicts = dict_list(params)
+    map(compute_and_save,dicts)
 
     GridapPETSc.Finalize()
 
-    # if MPI.Initialized() & !MPI.Finalized()
-    #   MPI.Finalize()
-    # end
+    if MPI.Initialized() & !MPI.Finalized()
+      MPI.Finalize()
+    end
 
   end
 
-  compute()
-  # export tol, maxits
-  # export compute, compute_and_save
+  # compute()
+  export tol, maxits
+  export compute, compute_and_save
 
 end

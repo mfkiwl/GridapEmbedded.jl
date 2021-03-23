@@ -19,7 +19,6 @@ end
                               "-ksp_norm_type", "unpreconditioned",
                               "-pc_type","gamg",
                               "-pc_gamg_type","agg",
-                              "-pc_gamg_esteig_ksp_type","cg",
                               "-mg_levels_esteig_ksp_type","cg",
                               "-mg_coarse_sub_pc_type","cholesky",
                               "-mg_coarse_sub_pc_factor_mat_ordering_type","nd",
