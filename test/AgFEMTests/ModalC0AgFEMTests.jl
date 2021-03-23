@@ -15,6 +15,8 @@ module ModalC0AgFEMTests
   using GridapPETSc
   using MPI
 
+  include("StaticCondensation.jl")
+
   const tol = 1e-16
   const maxits = 10000
   const R = 0.42
@@ -25,7 +27,7 @@ module ModalC0AgFEMTests
   function compute(n::Int,k::Int,d::Int,t::Int,s::Int,g::Int)
 
     u(x) = (1-s)*exact(x)+s*sinus(x)
-    f(x) = -Δ(u)(x)
+    w(x) = -Δ(u)(x)
     ud(x) = u(x)
 
     if d == 2
@@ -87,25 +89,43 @@ module ModalC0AgFEMTests
       ∫( (γd/h)*u*v  - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u ) * dΓ
 
     l(v) =
-      ∫( v*f ) * dΩᵃ +
-      ∫( (γd/h)*v*ud - (n_Γ⋅∇(v))*ud ) * dΓ
+      ∫( v*w )dΩᵃ +
+      ∫( (γd/h)*v*ud - (n_Γ⋅∇(v))*ud )dΓ
 
-    l2(u) = sqrt(sum(∫( u*u )*dOᵃ))
-    h1(u) = sqrt(sum(∫( ∇(u)⋅∇(u) )*dΩᵃ))
+    l2(u) = sqrt(sum(∫( u*u )dOᵃ))
+    h1(u) = sqrt(sum(∫( ∇(u)⋅∇(u) )dΩᵃ))
 
     reffe = ReferenceFE(modalC0,Float64,k,bboxes)
     Vstd = TestFESpace(model,reffe,conformity=:H1)
     V = AgFEMSpace(Vstd,aggregates,modalC0)
     U = TrialFESpace(V)
 
-    sop = @timed op = AffineFEOperator(a,l,U,V)
-    scn = @timed kopM = cond(get_matrix(op),1)
+    cell_matvec, bface_matvec = compute_contributions(U,V,a,l,Ωᵃ,Γ)
+    cell_matvec, ccell_to_bgcell =
+      combine_cell_and_bface_contribs(Ω_bg,Ωᵃ,Γ,cell_matvec,bface_matvec)
+    cell_matvec = attach_constraints_cols(U,cell_matvec,ccell_to_bgcell)
+    cell_matvec = attach_constraints_rows(V,cell_matvec,ccell_to_bgcell)
 
-    ls = PETScSolver()
-    solver = LinearFESolver(ls)
+    cell_dofs = lazy_map(Reindex(get_cell_dof_ids(V)),ccell_to_bgcell)
+    idof_to_dof, dof_to_idof = compute_itfc_dofs(cell_dofs,V)
+    cell_ildof_ldof, cell_cldof_ldof, cell_idofs =
+      compute_itfc_cell_dof_arrays(cell_dofs,dof_to_idof)
 
-    sso = @timed uh = solve(solver,op)
-    iteM = PETSc_get_number_of_iterations(ls)
+    dict = Dict()
+    cell_imatvec = lazy_map(StaticCondensationMap(dict),cell_matvec,cell_ildof_ldof,cell_cldof_ldof)
+
+    sop = @timed S,f = assemble_schur_system(cell_imatvec,cell_idofs,idof_to_dof)
+    scn = @timed kopM = cond(S,1)
+
+    solver = PETScSolver()
+    sso = @timed  x = solve(solver,S,f)
+    iteM = PETSc_get_number_of_iterations(solver)
+
+    y = apply_interior_correction(x,V,
+                                  idof_to_dof,dof_to_idof,cell_matvec,
+                                  cell_dofs,cell_ildof_ldof,cell_cldof_ldof,
+                                  dict)
+    uh = FEFunction(V,y)
 
     e = u - uh
     el2M = l2(e)
@@ -117,14 +137,32 @@ module ModalC0AgFEMTests
       V = AgFEMSpace(Vstd,aggregates,lagrangian)
       U = TrialFESpace(V)
 
-      op = AffineFEOperator(a,l,U,V)
-      kopN = cond(get_matrix(op),1)
+      cell_matvec, bface_matvec = compute_contributions(U,V,a,l,Ωᵃ,Γ)
+      cell_matvec, ccell_to_bgcell =
+        combine_cell_and_bface_contribs(Ω_bg,Ωᵃ,Γ,cell_matvec,bface_matvec)
+      cell_matvec = attach_constraints_cols(U,cell_matvec,ccell_to_bgcell)
+      cell_matvec = attach_constraints_rows(V,cell_matvec,ccell_to_bgcell)
 
-      ls = PETScSolver()
-      solver = LinearFESolver(ls)
+      cell_dofs = lazy_map(Reindex(get_cell_dof_ids(V)),ccell_to_bgcell)
+      idof_to_dof, dof_to_idof = compute_itfc_dofs(cell_dofs,V)
+      cell_ildof_ldof, cell_cldof_ldof, cell_idofs =
+        compute_itfc_cell_dof_arrays(cell_dofs,dof_to_idof)
 
-      uh = solve(solver,op)
-      iteN = PETSc_get_number_of_iterations(ls)
+      dict = Dict()
+      cell_imatvec = lazy_map(StaticCondensationMap(dict),cell_matvec,cell_ildof_ldof,cell_cldof_ldof)
+
+      S,f = assemble_schur_system(cell_imatvec,cell_idofs,idof_to_dof)
+      kopN = cond(S,1)
+
+      solver = PETScSolver()
+      x = solve(solver,S,f)
+      iteN = PETSc_get_number_of_iterations(solver)
+
+      y = apply_interior_correction(x,V,
+                                    idof_to_dof,dof_to_idof,cell_matvec,
+                                    cell_dofs,cell_ildof_ldof,cell_cldof_ldof,
+                                    dict)
+      uh = FEFunction(V,y)
 
       e = u - uh
       el2N = l2(e)
@@ -171,7 +209,6 @@ module ModalC0AgFEMTests
                       "-ksp_norm_type","unpreconditioned",
                       "-pc_type","gamg",
                       "-pc_gamg_type","agg",
-                      "-pc_gamg_esteig_ksp_type","cg",
                       "-mg_levels_esteig_ksp_type","cg",
                       "-mg_coarse_sub_pc_type","cholesky",
                       "-mg_coarse_sub_pc_factor_mat_ordering_type","nd",
@@ -180,29 +217,30 @@ module ModalC0AgFEMTests
                       "-pc_gamg_agg_nsmooths","1"])
 
     @info "Training"
-    compute(6,3,2,1,1,0)
-    @info "Producing"
-    params = Dict(
-      :n => [6,12,24,48,96],
-      :k => [1,2,3],
-      :d => [2],
-      :t => [0,1],
-      :s => [0,1],
-      :g => [0,1]
-    )
-    dicts = dict_list(params)
-    map(compute_and_save,dicts)
+    udofs, el2M, eh1M, kopM, iteM, el2N, eh1N, kopN, iteN, top, tcn, tso, bop, bcn, bso = compute(12,3,2,1,1,0)
+    println(udofs," ",el2M," ",eh1M," ",kopM," ",iteM," ",el2N," ",eh1N," ",kopN," ",iteN," ",top," ",tcn," ",tso," ",bop," ",bcn," ",bso)
+    # @info "Producing"
+    # params = Dict(
+    #   :n => [6,12,24,48,96],
+    #   :k => [1,2,3],
+    #   :d => [2],
+    #   :t => [0,1],
+    #   :s => [0,1],
+    #   :g => [0,1]
+    # )
+    # dicts = dict_list(params)
+    # map(compute_and_save,dicts)
 
     GridapPETSc.Finalize()
 
-    if MPI.Initialized() & !MPI.Finalized()
-      MPI.Finalize()
-    end
+    # if MPI.Initialized() & !MPI.Finalized()
+    #   MPI.Finalize()
+    # end
 
   end
 
-  # compute()
-  export tol, maxits
-  export compute, compute_and_save
+  compute()
+  # export tol, maxits
+  # export compute, compute_and_save
 
 end
