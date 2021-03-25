@@ -188,9 +188,18 @@ function get_nodes_and_change_of_basis(model::RestrictedDiscreteModel,
                                        degree::Int) where {D,T}
   p = check_and_get_polytope(cut)
   orders = tfill(degree,Val{D}())
-  nodes, _ = compute_nodes(p,orders)
+  # if degree > 4
+  #   quad = Quadrature(p,2*degree)
+  #   nodes = quad.coordinates
+  # else
+    nodes, _ = compute_nodes(p,orders)
+  # end
   dofs = LagrangianDofBasis(T,nodes)
-  change = transpose(inv(evaluate(dofs,b)))
+  # change = BigFloat.(evaluate(dofs,b))
+  # change = Float64.(transpose(inv(change)))
+  change = evaluate(dofs,b)
+  rtol = sqrt(eps(real(float(one(eltype(change))))))
+  change = transpose(pinv(change,rtol=rtol))
   change = Fill(change,num_cells(model))
   nodes, change
 end
