@@ -15,11 +15,36 @@ function CutCellMoments(model::RestrictedDiscreteModel,
   CutCellMoments(data,bgcell_to_cut_cell)
 end
 
+function MomentFittingMeasures(cut::EmbeddedDiscretization,
+                               degree::Int)
+
+  cmodel = DiscreteModel(cut,cut.geo,CUT)
+  imodel = DiscreteModel(cut,cut.geo,IN)
+
+  Ωᶜ = Triangulation(cmodel)
+  Ωⁱ = Triangulation(imodel)
+  Ω = AppendedTriangulation(Ωᶜ,Ωⁱ)
+
+  ccell_to_point_vals, ccell_to_weight_vals, mon_moments, lag_to_mon = compute_cell_moments(cut,degree)
+  ccell_to_weight_vals = collect(get_array(ccell_to_weight_vals))
+
+  nq = num_cells(Ωᶜ)
+  ptrs = collect(1:nq)
+  ccell_to_point = Fill(ccell_to_point_vals,nq)
+  ccell_to_weight = CompressedArray(ccell_to_weight_vals,ptrs)
+  ccell_to_quad = [ GenericQuadrature(ccell_to_point[i],ccell_to_weight[i]) for i in 1:nq ]
+
+  dΩᶜ = CellQuadrature(ccell_to_quad,ccell_to_point,ccell_to_weight,Ωᶜ,ReferenceDomain())
+  dΩⁱ = CellQuadrature(Ωⁱ,degree)
+  Measure(dΩᶜ), Measure(dΩⁱ), Measure(lazy_append(dΩᶜ,dΩⁱ)), mon_moments, lag_to_mon
+
+end
+
 function MomentFittingQuad(active_mesh::RestrictedTriangulation,
                            cut::EmbeddedDiscretization,
                            degree::Int)
 
-  acell_to_point_vals, acell_to_weight_vals = compute_cell_moments(cut,degree)
+  acell_to_point_vals, acell_to_weight_vals, _, _ = compute_cell_moments(cut,degree)
   acell_to_weight_vals = collect(get_array(acell_to_weight_vals))
 
   bgcell_to_inoutcut = compute_bgcell_to_inoutcut(cut)
@@ -55,7 +80,7 @@ function compute_cell_moments(cut::EmbeddedDiscretization{D,T},
   mon_moments = compute_monomial_cut_cell_moments(cut_bgmodel,mon_contribs,b)
   lag_nodes, lag_to_mon = get_nodes_and_change_of_basis(cut_bgmodel,cut,b,degree)
   lag_moments = lazy_map(*,lag_to_mon,mon_moments)
-  lag_nodes, lag_moments
+  lag_nodes, lag_moments, mon_moments, lag_to_mon
 end
 
 function compute_monomial_domain_contribution(cut::EmbeddedDiscretization{D,T},
@@ -195,6 +220,8 @@ function get_nodes_and_change_of_basis(model::RestrictedDiscreteModel,
     nodes, _ = compute_nodes(p,orders)
   # end
   dofs = LagrangianDofBasis(T,nodes)
+  # change = evaluate(dofs,b)
+  # change = transpose(inv(change))
   # change = BigFloat.(evaluate(dofs,b))
   # change = Float64.(transpose(inv(change)))
   change = evaluate(dofs,b)

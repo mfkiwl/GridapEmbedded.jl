@@ -20,13 +20,14 @@ module ModalC0AgFEMTests
   const tol = 1e-16
   const maxits = 10000
   const R = 0.42
-  const ω = 2*pi
-  exact(x) = x[1]+x[2]
-  sinus(x) = sin(ω*x[1])*x[2]
 
   function compute(n::Int,k::Int,d::Int,t::Int,s::Int,g::Int)
 
-    u(x) = (1-s)*exact(x)+s*sinus(x)
+    if d == 2
+      u(x) = (1-s)*(x[1]+x[2])+s*(x[1]+x[2])^(k+1)
+    else
+      u(x) = (1-s)*(x[1]+x[2]+x[3])+s*(x[1]+x[2]+x[3])^(k+1)
+    end
     w(x) = -Δ(u)(x)
     ud(x) = u(x)
 
@@ -66,20 +67,21 @@ module ModalC0AgFEMTests
     bboxes = compute_cell_to_dface_bboxes(model,aggregates)
 
     Ω_bg = Triangulation(bgmodel)
-    Ω = Triangulation(cutgeo)
+    amodel = DiscreteModel(cutgeo,geom,(CUT,IN))
+    Ω = Triangulation(amodel)
     Γ = EmbeddedBoundary(cutgeo)
 
     n_Γ = get_normal_vector(Γ)
 
     D = num_dims(model)
-    if k != 1
-      cdegm, cdegs, degm, degs = 2*D*k, 2*D*(k-1), 2*k, 2*k
+    if s == 0
+      cdeg, degw, dege = 2*k*D, 2*k, 2*k # Or degw = 2*k-2
     else
-      cdegm, cdegs, degm, degs = 2*D*k, 2*D*k, 2*k, 2*k
+      cdeg, degw, dege = (2*k+1)*D, 2*k, 2*k+2
     end
-    dΩ = Measure(Ω,cdegs,degs)
-    dO = Measure(Ω,cdegm,degm)
-    dΓ = Measure(Γ,cdegm)
+    dΩ = Measure(MomentFittingQuad(Ω,cutgeo,degw))
+    dO = Measure(MomentFittingQuad(Ω,cutgeo,dege))
+    dΓ = Measure(Γ,cdeg)
 
     γd = 5.0*k^2
 
@@ -232,14 +234,14 @@ module ModalC0AgFEMTests
 
     GridapPETSc.Finalize()
 
-    if MPI.Initialized() & !MPI.Finalized()
-      MPI.Finalize()
-    end
+    # if MPI.Initialized() & !MPI.Finalized()
+    #   MPI.Finalize()
+    # end
 
   end
 
-  # compute()
-  export tol, maxits
-  export compute, compute_and_save
+  compute()
+  # export tol, maxits
+  # export compute, compute_and_save
 
 end

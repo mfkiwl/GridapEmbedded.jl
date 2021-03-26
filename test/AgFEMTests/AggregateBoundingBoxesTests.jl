@@ -3,6 +3,7 @@ module AggregateBoundingBoxesTests
   using Gridap
   using GridapEmbedded
   using GridapEmbedded.AgFEM
+  # using SparseMatricesCSR
   # using GridapPETSc
   # using MPI
   using Test
@@ -24,7 +25,6 @@ module AggregateBoundingBoxesTests
   #                   "-ksp_view",
   #                   "-pc_type","gamg",
   #                   "-pc_gamg_type","agg",
-  #                   "-pc_gamg_esteig_ksp_type","cg",
   #                   "-mg_levels_esteig_ksp_type","cg",
   #                   "-mg_coarse_sub_pc_type","cholesky",
   #                   "-mg_coarse_sub_pc_factor_mat_ordering_type","nd",
@@ -42,9 +42,9 @@ module AggregateBoundingBoxesTests
   const R = 0.42
 
   n = 6
-  order = 1
+  order = 3
 
-  # geom = square(L=0.63,x0=Point(0.5,0.5))
+  # geom = square(L=0.53,x0=Point(0.5,0.5))
   geom = disk(R,x0=Point(0.5,0.5))
   partition = (n,n)
   domain = (0,1,0,1)
@@ -59,9 +59,6 @@ module AggregateBoundingBoxesTests
   cutgeo = cut(bgmodel,geom)
   model = DiscreteModel(cutgeo)
 
-  active_model = DiscreteModel(cutgeo,geom,(CUT,IN))
-  Ωᵃ = Triangulation(active_model)
-
   # γ₀ = 0.65
   # eᵧ = (3-2/num_dims(model))/(2*order+1-2/num_dims(model))
   # γ = γ₀^eᵧ
@@ -71,14 +68,14 @@ module AggregateBoundingBoxesTests
   bboxes = compute_cell_to_dface_bboxes(model,aggregates)
 
   Ω_bg = Triangulation(bgmodel)
-  Ω = Triangulation(cutgeo)
+  Ωf = Triangulation(cutgeo)
   Γ = EmbeddedBoundary(cutgeo)
 
   n_Γ = get_normal_vector(Γ)
 
   cutdeg, degree = 2*num_dims(model)*order, 2*order
-  dΩᵃ = Measure(MomentFittingQuad(Ωᵃ,cutgeo,degree))
-  dΩ = Measure(Ω,cutdeg,degree)
+  dΩf = Measure(Ωf,cutdeg,degree)
+  dΩᶜ, dΩⁱ, dΩ, mon_moments, lag_to_mon = MomentFittingMeasures(cutgeo,degree)
   dΓ = Measure(Γ,cutdeg)
 
   # reffe = ReferenceFE(lagrangian,Float64,order)
@@ -91,12 +88,12 @@ module AggregateBoundingBoxesTests
   γd = 5.0*order^2
 
   a(u,v) =
-    ∫( ∇(v)⋅∇(u) ) * dΩᵃ +
-    ∫( (γd/h)*v*u  - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u ) * dΓ
+    ∫( ∇(v)⋅∇(u) )dΩ +
+    ∫( (γd/h)*v*u  - v*(n_Γ⋅∇(u)) - (n_Γ⋅∇(v))*u )dΓ
 
   l(v) =
-    ∫( v*f ) * dΩᵃ +
-    ∫( (γd/h)*v*ud - (n_Γ⋅∇(v))*ud ) * dΓ
+    ∫( v*f )dΩ +
+    ∫( (γd/h)*v*ud - (n_Γ⋅∇(v))*ud )dΓ
 
   op = AffineFEOperator(a,l,U,V)
 
@@ -119,13 +116,35 @@ module AggregateBoundingBoxesTests
 
   e = u - uh
 
-  l2(u) = sqrt(sum( ∫( u*u )*dΩᵃ ))
-  h1(u) = sqrt(sum( ∫( u*u + ∇(u)⋅∇(u) )*dΩᵃ ))
+  l2(u) = sqrt(sum( ∫( u*u )dΩf ) )
+  h1(u) = sqrt(sum( ∫( u*u + ∇(u)⋅∇(u) )dΩf ) )
 
   el2 = l2(e)
   eh1 = h1(e)
   ul2 = l2(uh)
   uh1 = h1(uh)
+
+  # reffe = ReferenceFE(lagrangian,Float64,degree) # for exact solution!
+  # Vᵉ = TestFESpace(model,reffe,conformity=:H1)
+
+  # e² = e*e
+  # eₕ² = interpolate(e²,Vᵉ)
+
+  # ccell_to_parent_cell = dΩᶜ.quad.trian.cell_to_parent_cell
+  # ccell_eₕ² = get_cell_dof_values(eₕ²,ccell_to_parent_cell)
+
+  # cell_map = get_cell_map(dΩᶜ.quad.trian)
+  # cell_Jt = lazy_map(∇,cell_map)
+  # cell_detJt = lazy_map(Operation(det),cell_Jt)
+  # cell_detJtx = lazy_map(evaluate,cell_detJt,dΩᶜ.quad.cell_point) # Lag Nodes
+  # r_ccell_eₕ² = lazy_map(Broadcasting(*),ccell_eₕ²,cell_detJtx)
+
+  # lag_to_mon = lazy_map(transpose,lag_to_mon)
+  # mcoeffs = collect(lazy_map(*,lag_to_mon,r_ccell_eₕ²))
+
+  # l2eᶜn = sum(lazy_map(⋅,mcoeffs,mon_moments))
+  # l2eᶜo = sum(∫(e²)dΩᶜ)
+  # l2eⁱ  = sum(∫(e²)dΩⁱ)
 
   # colors = color_aggregates(aggregates,bgmodel)
   # writevtk(Ω_bg,"trian",celldata=["cellin"=>aggregates,"color"=>colors])
