@@ -35,14 +35,14 @@ module AggregateBoundingBoxesTests
   # using AlgebraicMultigrid
   # import IterativeSolvers: cg
 
-  u(x) = x[1]+x[2]
+  u(x) = (x[1]+x[2])^6
   f(x) = -Δ(u)(x)
   ud(x) = u(x)
 
   const R = 0.42
 
   n = 6
-  order = 3
+  order = 6
 
   # geom = square(L=0.53,x0=Point(0.5,0.5))
   geom = disk(R,x0=Point(0.5,0.5))
@@ -75,7 +75,7 @@ module AggregateBoundingBoxesTests
 
   cutdeg, degree = 2*num_dims(model)*order, 2*order
   dΩf = Measure(Ωf,cutdeg,degree)
-  dΩᶜ, dΩⁱ, dΩ, mon_moments, lag_to_mon = MomentFittingMeasures(cutgeo,degree)
+  dΩᶜ, dΩⁱ, dΩ = MomentFittingMeasures(cutgeo,degree)
   dΓ = Measure(Γ,cutdeg)
 
   # reffe = ReferenceFE(lagrangian,Float64,order)
@@ -116,8 +116,8 @@ module AggregateBoundingBoxesTests
 
   e = u - uh
 
-  l2(u) = sqrt(sum( ∫( u*u )dΩf ) )
-  h1(u) = sqrt(sum( ∫( u*u + ∇(u)⋅∇(u) )dΩf ) )
+  l2(u) = sqrt(abs(sum( ∫( u*u )dΩ )))
+  h1(u) = sqrt(abs(sum( ∫( u*u + ∇(u)⋅∇(u) )dΩ )))
 
   el2 = l2(e)
   eh1 = h1(e)

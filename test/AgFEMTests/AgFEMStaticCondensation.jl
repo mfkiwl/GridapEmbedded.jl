@@ -10,6 +10,7 @@ module AgFEMStaticCondensation
   using Test
 
   using GridapEmbedded.Interfaces: CUT, IN
+  using SparseArrays: SparseMatrixCSC
 
   include("StaticCondensation.jl")
 

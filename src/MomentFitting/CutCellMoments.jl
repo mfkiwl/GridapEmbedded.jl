@@ -25,7 +25,7 @@ function MomentFittingMeasures(cut::EmbeddedDiscretization,
   Ωⁱ = Triangulation(imodel)
   Ω = AppendedTriangulation(Ωᶜ,Ωⁱ)
 
-  ccell_to_point_vals, ccell_to_weight_vals, mon_moments, lag_to_mon = compute_cell_moments(cut,degree)
+  ccell_to_point_vals, ccell_to_weight_vals = compute_lag_moments_from_leg(cut,degree)
   ccell_to_weight_vals = collect(get_array(ccell_to_weight_vals))
 
   nq = num_cells(Ωᶜ)
@@ -36,7 +36,7 @@ function MomentFittingMeasures(cut::EmbeddedDiscretization,
 
   dΩᶜ = CellQuadrature(ccell_to_quad,ccell_to_point,ccell_to_weight,Ωᶜ,ReferenceDomain())
   dΩⁱ = CellQuadrature(Ωⁱ,degree)
-  Measure(dΩᶜ), Measure(dΩⁱ), Measure(lazy_append(dΩᶜ,dΩⁱ)), mon_moments, lag_to_mon
+  Measure(dΩᶜ), Measure(dΩⁱ), Measure(lazy_append(dΩᶜ,dΩⁱ))
 
 end
 
@@ -44,7 +44,7 @@ function MomentFittingQuad(active_mesh::RestrictedTriangulation,
                            cut::EmbeddedDiscretization,
                            degree::Int)
 
-  acell_to_point_vals, acell_to_weight_vals, _, _ = compute_cell_moments(cut,degree)
+  acell_to_point_vals, acell_to_weight_vals = compute_lag_moments_from_leg(cut,degree)
   acell_to_weight_vals = collect(get_array(acell_to_weight_vals))
 
   bgcell_to_inoutcut = compute_bgcell_to_inoutcut(cut)
@@ -69,6 +69,84 @@ function MomentFittingQuad(active_mesh::RestrictedTriangulation,
   acell_to_quad = [ GenericQuadrature(acell_to_point[i],acell_to_weight[i]) for i in 1:num_quads ]
   CellQuadrature(acell_to_quad,acell_to_point,acell_to_weight,active_mesh,ReferenceDomain())
 
+end
+
+# function compute_lag_moments(cut::EmbeddedDiscretization{D,T},
+#                              deg::Int) where{D,T}
+#   t = Triangulation(cut,cut.geo,CUTIN)
+#   b = JacobiPolynomialBasis{D}(T,deg)
+#   p = check_and_get_polytope(cut)
+#   orders = tfill(deg,Val{D}())
+#   nodes, _ = compute_nodes(p,orders)
+#   dofs = LagrangianDofBasis(T,nodes)
+#   change = evaluate(dofs,b)
+#   println(cond(change))
+#   rtol = sqrt(eps(real(float(one(eltype(change))))))
+#   change = pinv(change,rtol=rtol)
+#   l = linear_combination(change,b)
+#   v = Fill(l,num_cells(t))
+#   dt = CellQuadrature(t,deg*D)
+#   x_gp_ref_1d = dt.cell_point
+#   cell_map = get_cell_ref_map(t)
+#   x_gp_ref = lazy_map(evaluate,cell_map,x_gp_ref_1d)
+#   v_gp_ref = lazy_map(evaluate,v,x_gp_ref)
+#   cell_Jt = lazy_map(∇,cell_map)
+#   cell_Jtx = lazy_map(evaluate,cell_Jt,x_gp_ref_1d)
+#   I_v_in_t = lazy_map(IntegrationMap(),v_gp_ref,dt.cell_weight,cell_Jtx)
+#   cbgm = DiscreteModel(cut,cut.geo,CUT)
+#   moments = [ zero(first(I_v_in_t)) for i in 1:num_cells(cbgm) ]
+#   cell_to_bgcell = get_cell_to_bgcell(t)
+#   cell_to_parent_cell = get_cell_to_parent_cell(cbgm)
+#   bgcell_to_cell = zeros(Int32,num_cells(get_parent_model(cbgm)))
+#   bgcell_to_cell[cell_to_parent_cell] .= 1:length(cell_to_parent_cell)
+#   for i in 1:num_cells(t)
+#     moments[bgcell_to_cell[cell_to_bgcell[i]]] += I_v_in_t[i]
+#   end
+#   nodes, moments
+# end
+
+function Pᵢ(i::Int)
+  P = []
+  a = (-1)^i
+  for k in 0:i
+    push!(P,a*binomial(i,k)*binomial(i+k,k)*(-1)^k)
+  end
+  P
+end
+
+function legendreToMonomial1D(n::Int)
+  B = zeros(n+1,n+1)
+  for i in 1:n+1
+    B[i,1:i] = sqrt(2*i-1)*Pᵢ(i-1)
+  end
+  B
+end
+
+function legendreToMonomial(n::Int,d::Int)
+  nt = ntuple(i->1:(n+1),d)
+  cis = CartesianIndices(nt)
+  B = zeros(length(cis),length(cis))
+  B1D = legendreToMonomial1D(n)
+  for (i,ci) in enumerate(cis)
+    ti = [ B1D[j,:] for j in Tuple(ci) ]
+    B[i,:] = kron(ti[end:-1:1]...)
+  end
+  B
+end
+
+function compute_lag_moments_from_leg(cut::EmbeddedDiscretization{D,T},
+                                      degree::Int) where{D,T}
+  bgtrian = Triangulation(cut.bgmodel)
+  b = MonomialBasis{D}(T,degree)
+  cut_bgmodel = DiscreteModel(cut,cut.geo,CUT)
+  mon_contribs = compute_monomial_domain_contribution(cut,b,degree)
+  mon_moments = compute_monomial_cut_cell_moments(cut_bgmodel,mon_contribs,b)
+  mon_to_leg = Fill(legendreToMonomial(degree,D),num_cells(cut_bgmodel))
+  leg_moments = lazy_map(*,mon_to_leg,mon_moments)
+  p = JacobiPolynomialBasis{D}(T,degree)
+  lag_nodes, lag_to_leg = get_nodes_and_change_of_basis(cut_bgmodel,cut,p,degree)
+  lag_moments = lazy_map(*,lag_to_leg,leg_moments)
+  lag_nodes, lag_moments
 end
 
 function compute_cell_moments(cut::EmbeddedDiscretization{D,T},
@@ -128,7 +206,7 @@ function int_c_b(t::Triangulation,b::MonomialBasis,deg::Int)
   facet_n_r = lazy_map(evaluate,facet_n,x_gp_ref_1d)
   c = lazy_map(first,lazy_map(Broadcasting(⋅),facet_n_r,x_gp_ref))
 
-  v = get_monomial_cell_array(b,t)
+  v = Fill(b,num_cells(t))
   v_gp_ref = lazy_map(evaluate,v,x_gp_ref)
 
   facet_Jt = lazy_map(∇,facet_map)
@@ -209,24 +287,14 @@ end
 
 function get_nodes_and_change_of_basis(model::RestrictedDiscreteModel,
                                        cut::EmbeddedDiscretization{D,T},
-                                       b::MonomialBasis{D,T},
+                                       b,
                                        degree::Int) where {D,T}
   p = check_and_get_polytope(cut)
   orders = tfill(degree,Val{D}())
-  # if degree > 4
-  #   quad = Quadrature(p,2*degree)
-  #   nodes = quad.coordinates
-  # else
-    nodes, _ = compute_nodes(p,orders)
-  # end
+  nodes, _ = compute_nodes(p,orders)
   dofs = LagrangianDofBasis(T,nodes)
-  # change = evaluate(dofs,b)
-  # change = transpose(inv(change))
-  # change = BigFloat.(evaluate(dofs,b))
-  # change = Float64.(transpose(inv(change)))
   change = evaluate(dofs,b)
-  rtol = sqrt(eps(real(float(one(eltype(change))))))
-  change = transpose(pinv(change,rtol=rtol))
+  change = transpose(inv(change))
   change = Fill(change,num_cells(model))
   nodes, change
 end
@@ -248,13 +316,6 @@ end
 
 @inline function check_and_get_polytope(cut::EmbeddedDiscretization)
   _check_and_get_polytope(cut.bgmodel.grid)
-end
-
-function get_monomial_cell_array(b::MonomialBasis{D,T},
-                                 trian::Triangulation) where {D,T}
-  i = Matrix{eltype(T)}(I,length(b),length(b))
-  l = linear_combination(i,b)
-  m = Fill(l,num_cells(trian))
 end
 
 @inline function get_terms_degrees(b::MonomialBasis)

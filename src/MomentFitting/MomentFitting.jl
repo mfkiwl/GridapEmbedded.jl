@@ -31,7 +31,7 @@ import GridapEmbedded.Interfaces: compute_bgcell_to_inoutcut
 
 using GridapEmbedded.LevelSetCutters: _check_and_get_polytope
 
-import LinearAlgebra: I, pinv, cond
+import LinearAlgebra: pinv, cond
 using FillArrays
 
 export MomentFittingMeasures

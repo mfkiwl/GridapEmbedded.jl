@@ -23,11 +23,7 @@ module ModalC0AgFEMTests
 
   function compute(n::Int,k::Int,d::Int,t::Int,s::Int,g::Int)
 
-    if d == 2
-      u(x) = (1-s)*(x[1]+x[2])+s*(x[1]+x[2])^(k+1)
-    else
-      u(x) = (1-s)*(x[1]+x[2]+x[3])+s*(x[1]+x[2]+x[3])^(k+1)
-    end
+    u(x) = (1-s)*sum(x)+s*(sum(x)^(k+1))
     w(x) = -Δ(u)(x)
     ud(x) = u(x)
 
@@ -93,8 +89,8 @@ module ModalC0AgFEMTests
       ∫( v*w )dΩ +
       ∫( (γd/h)*v*ud - (n_Γ⋅∇(v))*ud )dΓ
 
-    l2(u) = sqrt(sum(∫( u*u )dO))
-    h1(u) = sqrt(sum(∫( ∇(u)⋅∇(u) )dΩ))
+    l2(u) = sqrt(abs(sum(∫( u*u )dO)))
+    h1(u) = sqrt(abs(sum(∫( ∇(u)⋅∇(u) )dΩ)))
 
     reffe = ReferenceFE(modalC0,Float64,k,bboxes)
     Vstd = TestFESpace(model,reffe,conformity=:H1)
@@ -119,7 +115,7 @@ module ModalC0AgFEMTests
     scn = @timed kopM = cond(S,1)
 
     solver = PETScSolver()
-    sso = @timed  x = solve(solver,S,f)
+    sso = @timed x = solve(solver,S,f)
     iteM = PETSc_get_number_of_iterations(solver)
 
     y = apply_interior_correction(x,V,
@@ -240,8 +236,8 @@ module ModalC0AgFEMTests
 
   end
 
-  compute()
-  # export tol, maxits
-  # export compute, compute_and_save
+  # compute()
+  export tol, maxits
+  export compute, compute_and_save
 
 end
