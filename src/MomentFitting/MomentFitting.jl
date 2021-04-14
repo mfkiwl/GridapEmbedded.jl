@@ -20,6 +20,7 @@ using Gridap.ReferenceFEs: LagrangianDofBasis
 
 using Gridap.Arrays: CompressedArray
 
+using Gridap.ReferenceFEs
 using Gridap.ReferenceFEs: Quadrature
 using Gridap.ReferenceFEs: GenericQuadrature
 
