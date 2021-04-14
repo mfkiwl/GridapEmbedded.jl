@@ -8,7 +8,7 @@ manager = MPIClusterManagers.start_main_loop(MPI_TRANSPORT_ALL)
   println("Hello from process $(pid) on host $(host)!")
 end
 
-@everywhere include("test/AgFEMTests/ModalC0AgFEMTests.jl")
+@everywhere include("ModalC0AgFEMTests.jl")
 @everywhere using .ModalC0AgFEMTests
 @everywhere using DrWatson
 @everywhere @quickactivate "GridapEmbedded"

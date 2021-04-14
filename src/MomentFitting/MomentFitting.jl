@@ -20,8 +20,8 @@ using Gridap.ReferenceFEs: LagrangianDofBasis
 
 using Gridap.Arrays: CompressedArray
 
-using Gridap.Integration: Quadrature
-using Gridap.Integration: GenericQuadrature
+using Gridap.ReferenceFEs: Quadrature
+using Gridap.ReferenceFEs: GenericQuadrature
 
 using GridapEmbedded.Interfaces
 using GridapEmbedded.Interfaces: SubFacetTriangulation
