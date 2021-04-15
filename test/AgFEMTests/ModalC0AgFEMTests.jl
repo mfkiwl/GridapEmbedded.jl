@@ -18,7 +18,7 @@ module ModalC0AgFEMTests
   include("StaticCondensation.jl")
 
   const tol = 1e-16
-  const maxits = 10000
+  const maxits = 5000
   const R = 0.42
 
   function compute(n::Int,k::Int,d::Int,t::Int,s::Int,g::Int)
@@ -71,11 +71,12 @@ module ModalC0AgFEMTests
 
     D = num_dims(model)
     if s == 0
-      cdeg, degw, dege = 2*k*D, 2*k, 2*k # Or degw = 2*k-2
+      cdeg, degw, degh, dege = 2*k*D, max(2*k-1,2), max(2*k-2,2), 2*k # Or degw = 2*k-2
     else
-      cdeg, degw, dege = (2*k+1)*D, 2*k, 2*k+2
+      cdeg, degw, degh, dege = (2*k+1)*D, max(2*k-1,2), 2*k, 2*k+2
     end
     dΩ = Measure(MomentFittingQuad(Ω,cutgeo,degw))
+    dH = Measure(MomentFittingQuad(Ω,cutgeo,degh))
     dO = Measure(MomentFittingQuad(Ω,cutgeo,dege))
     dΓ = Measure(Γ,cdeg)
 
@@ -90,7 +91,7 @@ module ModalC0AgFEMTests
       ∫( (γd/h)*v*ud - (n_Γ⋅∇(v))*ud )dΓ
 
     l2(u) = sqrt(abs(sum(∫( u*u )dO)))
-    h1(u) = sqrt(abs(sum(∫( ∇(u)⋅∇(u) )dΩ)))
+    h1(u) = sqrt(abs(sum(∫( ∇(u)⋅∇(u) )dH)))
 
     reffe = ReferenceFE(modalC0,Float64,k,bboxes)
     Vstd = TestFESpace(model,reffe,conformity=:H1)
@@ -112,7 +113,11 @@ module ModalC0AgFEMTests
     cell_imatvec = lazy_map(StaticCondensationMap(dict),cell_matvec,cell_ildof_ldof,cell_cldof_ldof)
 
     sop = @timed S,f = assemble_schur_system(cell_imatvec,cell_idofs,idof_to_dof)
-    scn = @timed kopM = cond(S,1)
+    if k < 3
+      scn = @timed kopM = cond(S,1)
+    else
+      scn = @timed kopM = 0
+    end
 
     solver = PETScSolver()
     sso = @timed x = solve(solver,S,f)
@@ -149,7 +154,11 @@ module ModalC0AgFEMTests
       cell_imatvec = lazy_map(StaticCondensationMap(dict),cell_matvec,cell_ildof_ldof,cell_cldof_ldof)
 
       S,f = assemble_schur_system(cell_imatvec,cell_idofs,idof_to_dof)
-      kopN = cond(S,1)
+      if k < 3
+        scn = @timed kopN = cond(S,1)
+      else
+        scn = @timed kopN = 0
+      end
 
       solver = PETScSolver()
       x = solve(solver,S,f)
@@ -202,6 +211,7 @@ module ModalC0AgFEMTests
     end
 
     GridapPETSc.Init(["-ksp_type","cg",
+                      "-ksp_converged_reason",
                       "-ksp_rtol","$tol",
                       "-ksp_max_it","$maxits",
                       "-ksp_norm_type","unpreconditioned",

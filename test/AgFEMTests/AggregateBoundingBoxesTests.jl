@@ -75,7 +75,10 @@ module AggregateBoundingBoxesTests
 
   cutdeg, degree = 2*num_dims(model)*order, 2*order
   dΩf = Measure(Ωf,cutdeg,degree)
+  # println("dΩf ",sum(abs.(dΩf.quad.cell_weight.a.values[1])))
   dΩᶜ, dΩⁱ, dΩ = MomentFittingMeasures(cutgeo,degree)
+  # subQ = [ sum(abs.(dΩᶜ.quad.cell_weight.values[i])) for i in 1:length(dΩᶜ.quad.cell_weight.values)]
+  # println("dΩᶜ ",maximum(subQ))
   dΓ = Measure(Γ,cutdeg)
 
   # reffe = ReferenceFE(lagrangian,Float64,order)
@@ -98,6 +101,7 @@ module AggregateBoundingBoxesTests
   op = AffineFEOperator(a,l,U,V)
 
   uh = solve(op)
+  # writevtk(Ω_bg,"t_bg",cellfields=["uh"=>uh])
 
   # A = get_matrix(op)
   # b = get_vector(op)

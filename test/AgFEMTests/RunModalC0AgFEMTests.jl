@@ -14,6 +14,7 @@ end
 @everywhere @quickactivate "GridapEmbedded"
 @everywhere using GridapPETSc
 @everywhere GridapPETSc.Init(["-ksp_type", "cg",
+                              "-ksp_converged_reason",
                               "-ksp_rtol", "$tol",
                               "-ksp_max_it", "$maxits",
                               "-ksp_norm_type", "unpreconditioned",
@@ -37,8 +38,8 @@ params = Dict(
 dicts = dict_list(params)
 
 @everywhere @info "Training"
-@everywhere compute(6,1,2,1,0,0)
 @everywhere compute(6,3,2,1,0,0)
+@everywhere compute(6,3,3,1,0,0)
 @everywhere @info "Producing"
 pmap(compute_and_save,dicts,on_error=ex->ex)
 

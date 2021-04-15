@@ -3,7 +3,9 @@
   using Gridap.CellData
   using Gridap.Arrays
   using Gridap.Algebra
+  using SparseMatricesCSR
   using Gridap.FESpaces
+
   import Gridap.Arrays: return_cache, evaluate!
 
   function compute_contributions(U::FESpace,V::FESpace,
@@ -158,18 +160,18 @@
     data = (matvecdata, matdata, vecdata)
     rows = first(axes(idof_to_dof))
     cols = rows
-    assem = GenericSparseMatrixAssembler(
-      SparseMatrixCSC{Float64,Int},
-      Vector{Float64},
-      rows,
-      cols,
-      DefaultAssemblyStrategy())
     # assem = GenericSparseMatrixAssembler(
-    #   SparseMatrixCSR{0,PetscReal,PetscInt},
+    #   SparseMatrixCSC{Float64,Int},
     #   Vector{Float64},
     #   rows,
     #   cols,
     #   DefaultAssemblyStrategy())
+    assem = GenericSparseMatrixAssembler(
+      SparseMatrixCSR{0,PetscReal,PetscInt},
+      Vector{Float64},
+      rows,
+      cols,
+      DefaultAssemblyStrategy())
     S,f = assemble_matrix_and_vector(assem,data)
   end
 
