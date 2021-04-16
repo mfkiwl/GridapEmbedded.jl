@@ -31,9 +31,6 @@ end
 @publish LevelSetCutters square
 @publish LevelSetCutters quadrilateral
 
-@publish MomentFitting MomentFittingMeasures
-@publish MomentFitting MomentFittingQuad
-
 @publish AgFEM AgFEMSpace
 @publish AgFEM aggregate
 @publish AgFEM color_aggregates
