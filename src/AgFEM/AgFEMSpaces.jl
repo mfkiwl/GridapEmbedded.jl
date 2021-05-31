@@ -1,6 +1,6 @@
 
 function AgFEMSpace(f::SingleFieldFESpace,cell_to_cellin::AbstractVector,g::SingleFieldFESpace=f)
-  AgFEMSpace(f,cell_to_cellin,get_cell_shapefuns(g),get_cell_dof_basis(g))
+  AgFEMSpace(f,cell_to_cellin,get_fe_shapefuns(g),get_fe_dof_basis(g))
 end
 
 # Note: cell is in fact bgcell in this function since f will usually be an ExtendedFESpace
@@ -22,8 +22,8 @@ function AgFEMSpace(
   trian_a = Triangulation(trian,acell_to_cell)
 
   # Celldata Defined on trian
-  dofs_f = get_cell_dof_basis(f)
-  shfns_f = get_cell_shapefuns(f)
+  dofs_f = get_fe_dof_basis(f)
+  shfns_f = get_fe_shapefuns(f)
   dofs_g = cell_dof_basis_g
   shfns_g = cell_shapefuns_g
 
@@ -77,10 +77,10 @@ function AgFEMSpace(
   trian_a = Triangulation(trian,acell_to_cell)
 
   # Celldata Defined on trian
-  dofs_f = get_cell_dof_basis(f)
-  shfns_f = get_cell_shapefuns(f)
-  dofs_g = get_cell_dof_basis(f)
-  shfns_g = get_cell_shapefuns(f)
+  dofs_f = get_fe_dof_basis(f)
+  shfns_f = get_fe_shapefuns(f)
+  dofs_g = get_fe_dof_basis(f)
+  shfns_g = get_fe_shapefuns(f)
 
   # Celldata Defined on trian_a
   dofs_f_a = change_domain(dofs_f,trian_a,DomainStyle(dofs_f))
