@@ -43,8 +43,15 @@ function _setup_cell_ref_map(st,reffe,cell_types)
   cell_to_ref_map
 end
 
-function compress(cell_mat,trian::SubCellTriangulation)
-  compress(cell_mat,get_cell_to_bgcell(trian))
+function compress_contributions(cell_mat,trian::SubCellTriangulation)
+  cell_to_bgcell = get_cell_to_bgcell(trian)
+  ccell_mat = compress_contributions(cell_mat,cell_to_bgcell)
+  ccell_mat
+end
+
+function compress_ids(cell_ids,trian::SubCellTriangulation)
+  cell_to_bgcell = get_cell_to_bgcell(trian)
+  compress_ids(cell_ids,cell_to_bgcell)
 end
 
 # Triangulation API
