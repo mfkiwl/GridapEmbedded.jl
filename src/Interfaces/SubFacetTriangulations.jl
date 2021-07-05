@@ -48,17 +48,9 @@ function _setup_facet_ref_map(st,reffe,facet_types)
   facet_to_ref_map
 end
 
-function compress_contributions(cell_mat,trian::SubFacetTriangulation)
-  cell_to_bgcell = get_cell_to_bgcell(trian)
-  ccell_mat = compress_contributions(cell_mat,cell_to_bgcell)
-  ccell_mat
+function compress(cell_mat,trian::SubFacetTriangulation)
+  compress(cell_mat,get_cell_to_bgcell(trian))
 end
-
-function compress_ids(cell_ids,trian::SubFacetTriangulation)
-  cell_to_bgcell = get_cell_to_bgcell(trian)
-  compress_ids(cell_ids,cell_to_bgcell)
-end
-
 
 # Triangulation API
 
