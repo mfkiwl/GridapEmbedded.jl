@@ -14,6 +14,11 @@ struct BoundingBox{D,T}
   pmax::Point{D,T}
 end
 
+function AnalyticalGeometry(f::Function)
+  tree = Leaf((f,string(nameof(f)),nothing))
+  AnalyticalGeometry(tree)
+end
+
 # Factories
 
 function doughnut(R,r;x0=zero(Point{3,typeof(R)}),name="doughnut")
@@ -41,6 +46,54 @@ end
 @inline function _doughnut_fun(x::Point,R,r,x0)
   _x = x - x0
   (R - sqrt(_x[1]^2+_x[2]^2) )^2 + _x[3]^2 - r^2
+end
+
+function popcorn(;
+  r0=0.6,
+  σ=0.2,
+  A=2,
+  x0=zero(Point{3,typeof(r0)}),
+  name="popcorn")
+
+  box = _popcorn_box(x0,r0)
+
+  function popcornfun(x)
+    _popcorn_fun(x,x0,r0,σ,A)
+  end
+
+  tree = Leaf((popcornfun,name,box))
+
+  AnalyticalGeometry(tree)
+end
+
+function _popcorn_box(x0,R)
+  e = 1.5
+  pmin = x0 - e*R
+  pmax = x0 + e*R
+  BoundingBox(pmin, pmax)
+end
+
+@inline function _popcorn_fun(_x,x0,r0,σ,A)
+  function point_k(k,r0)
+    if 0 <= k && k<=4
+      α = 2*k*π/5
+      (r0/sqrt(5))*Point(2*cos(α),2*sin(α),1.)
+    elseif 5<=k && k <=9
+      α = (2*(k-5)-1)*π/5
+      (r0/sqrt(5))*Point(2*cos(α),2*sin(α),-1.)
+    elseif k==10
+      Point(0.,0.,r0)
+    else
+      Point(0.,0.,-r0)
+    end
+  end
+  x,y,z = _x - x0
+  val = sqrt(x^2+y^2+z^2) - r0
+  for k in 0:11
+    xk,yk,zk = point_k(k,r0)
+    val -= A*exp(-((x-xk)^2+(y-yk)^2+(z-zk)^2)/σ^2)
+  end
+  val
 end
 
 function sphere(R;x0=zero(Point{3,eltype(R)}),name="sphere")
@@ -139,6 +192,15 @@ function quadrilateral(;x0=Point(0,0),d1=VectorValue(1,0),d2=VectorValue(0,1),na
     slope1 = d1[2]/d1[1]
     slope2 = d2[2]/d2[1]
 
+    if slope1 > slope2
+      temp = slope1
+      slope1 = slope2
+      slope2 =temp
+      var = x1
+      x1 = x2
+      x2 = var
+    end
+
     slope_n1 = -1/slope1
     slope_n2 = -1/slope2
 
@@ -148,12 +210,12 @@ function quadrilateral(;x0=Point(0,0),d1=VectorValue(1,0),d2=VectorValue(0,1),na
     n1 = VectorValue(1/den1,slope_n1/den1)
     n2 = VectorValue(1/den2,slope_n2/den2)
 
-    if slope_n1 == Inf
-      n1 = VectorValue(0.0,1.0)
+    if slope_n1 == -Inf
+      n1 = VectorValue(0.0,-1.0)
     end
 
-    if slope_n2 == Inf
-      n2 = VectorValue(0.0,1.0)
+    if slope_n2 == -Inf
+      n2 = VectorValue(0.0,-1.0)
     end
 
     plane1=plane(x0=x0,v=+n1,name="edge1")

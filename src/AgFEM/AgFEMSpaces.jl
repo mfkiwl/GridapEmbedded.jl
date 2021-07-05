@@ -38,15 +38,6 @@ function AgFEMSpace(
   acell_to_proj = lazy_map(Reindex(cell_to_proj),acell_to_cellin)
   acell_to_dof_ids = lazy_map(Reindex(get_cell_dof_ids(f)),acell_to_cell)
 
-  # aggdof_to_fdof, aggdof_to_dofs, aggdof_to_coeffs = _setup_agfem_constraints(
-  #   num_free_dofs(f),
-  #   acell_to_cellin,
-  #   acell_to_cell,
-  #   cell_to_acell,
-  #   acell_to_dof_ids,
-  #   acell_to_coeffs,
-  #   acell_to_proj)
-
   # Filter trivial coeffs
   aggdof_to_fdof, aggdof_to_dofs, aggdof_to_coeffs = _setup_agfem_constraints(
     num_free_dofs(f),
